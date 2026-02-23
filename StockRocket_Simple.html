@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio · Today</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --bg: #0d0d0f;
+      --surface: #16161a;
+      --surface2: #1e1e24;
+      --border: #2a2a33;
+      --text: #f0f0f0;
+      --muted: #666672;
+      --green: #00e676;
+      --green-dim: rgba(0,230,118,0.12);
+      --red: #ff4d6d;
+      --red-dim: rgba(255,77,109,0.12);
+      --accent: #7c6af7;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      padding: 1.5rem 1.25rem 3rem;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.75rem;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #00e676, #00b0ff);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .logo-text {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .setup-btn {
+      background: var(--surface2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.875rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-family: 'DM Mono', monospace;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .setup-btn:hover { color: var(--text); border-color: #444; }
+
+    /* ── Summary Cards ── */
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+    }
+
+    .summary-card.full { grid-column: span 2; }
+
+    .summary-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .summary-value {
+      font-size: 2.1rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .summary-value.total-value {
+      font-size: 2.6rem;
+      color: #ffffff;
+    }
+
+    .summary-sub {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    .green { color: var(--green); }
+    .red { color: var(--red); }
+
+    /* ── Chart Section ── */
+    .chart-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 220px;
+    }
+
+    /* on mobile, taller to accommodate horizontal bars */
+    @media (max-width: 480px) {
+      .chart-wrap { height: auto; min-height: 180px; }
+      .chart-wrap.dynamic-height { /* set by JS */ }
+    }
+
+    /* ── Holdings List ── */
+    .holdings-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .holding-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.875rem 1rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: start;
+      gap: 0.75rem;
+      transition: border-color 0.2s;
+    }
+
+    .holding-row.up { border-left: 3px solid var(--green); }
+    .holding-row.down { border-left: 3px solid var(--red); }
+
+    .holding-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      line-height: 1.2;
+    }
+
+    .holding-ticker {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    .holding-meta {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .peak-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      background: rgba(124,106,247,0.15);
+      color: #a89cf7;
+      border: 1px solid rgba(124,106,247,0.25);
+    }
+
+    .peak-badge.warn { background: rgba(234,179,8,0.12); color: #facc15; border-color: rgba(234,179,8,0.25); }
+    .peak-badge.alert { background: var(--red-dim); color: var(--red); border-color: rgba(255,77,109,0.25); }
+
+    .holding-right {
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .holding-change {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.95rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .holding-value {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-top: 0.25rem;
+      white-space: nowrap;
+    }
+
+    .pct-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-family: 'DM Mono', monospace;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      margin-left: 0.3rem;
+    }
+
+    .pct-badge.up { background: var(--green-dim); color: var(--green); }
+    .pct-badge.down { background: var(--red-dim); color: var(--red); }
+
+    @media (max-width: 380px) {
+      body { padding: 1rem 0.875rem 2.5rem; }
+      .summary-value.total-value { font-size: 2.1rem; }
+      .holding-name { font-size: 0.875rem; }
+    }
+
+    /* ── Empty/Setup State ── */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+
+    .empty-state p { font-size: 0.9rem; margin-bottom: 1rem; }
+
+    .empty-setup-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.6rem 1.5rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .modal h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+    }
+
+    .field { margin-bottom: 0.875rem; }
+
+    .field label {
+      display: block;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .field input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.55rem 0.75rem;
+      border-radius: 7px;
+      font-size: 0.875rem;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .field input:focus { border-color: var(--accent); }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1.25rem;
+    }
+
+    .btn-save {
+      flex: 1;
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.6rem;
+      border-radius: 7px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .btn-cancel {
+      flex: 1;
+      background: var(--surface2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.6rem;
+      border-radius: 7px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    /* ── Timestamp ── */
+    .timestamp {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 1.5rem;
+    }
+
+    /* ── Loading ── */
+    @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+    .loading { animation: pulse 1.5s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">📈</div>
+      <span class="logo-text">Portfolio · Today</span>
+    </div>
+    <button class="setup-btn" id="setupBtn">Setup</button>
+  </div>
+
+  <div id="app">
+    <div class="empty-state">
+      <p>Connect your Google Sheets to get started</p>
+      <button class="empty-setup-btn" id="emptySetupBtn">Connect Sheet</button>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h2>Google Sheets Setup</h2>
+      <div class="field">
+        <label>Sheets URL</label>
+        <input id="sheetsUrl" type="text" placeholder="https://docs.google.com/spreadsheets/d/..." />
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input id="apiKey" type="text" placeholder="AIzaSy..." />
+      </div>
+      <div class="field">
+        <label>Sheet Name</label>
+        <input id="sheetName" type="text" value="Sheet1" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-save" id="saveBtn">Save & Load</button>
+        <button class="btn-cancel" id="cancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let SHEET_ID = localStorage.getItem('sr_sheetId') || '';
+    let API_KEY  = localStorage.getItem('sr_apiKey')  || '';
+    let SHEET_NAME = localStorage.getItem('sr_sheetName') || 'Sheet1';
+    let portfolioData = [];
+    let barChart = null;
+
+    // ── Helpers ──────────────────────────────────────────
+    function cleanPrice(p) {
+      if (!p) return 0;
+      const s = String(p).trim();
+      if (s === '#N/A' || s === '#NA' || s === 'N/A' || s === '') return 0;
+      const n = parseFloat(s.replace(/[$,]/g, ''));
+      return isNaN(n) ? 0 : n;
+    }
+
+    function fmt(n, dp = 0) {
+      const abs = Math.abs(n);
+      const str = abs.toLocaleString('en-NZ', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+      return (n < 0 ? '-$' : '$') + str;
+    }
+
+    function fmtPct(n) {
+      return (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+    }
+
+    function getStockValue(s) {
+      const tv = cleanPrice(s['Total current value']);
+      if (tv > 0) return tv;
+      return (parseFloat(s.Quantity) || 0) * cleanPrice(s['Current Price']);
+    }
+
+    function getStockCost(s) {
+      const tc = cleanPrice(s['Total purchase price']);
+      if (tc > 0) return tc;
+      return (parseFloat(s.Quantity) || 0) * cleanPrice(s['Purchase Price']);
+    }
+
+    function isWatchlisted(s) {
+      const w = (s.Watchlist || '').toString().toLowerCase();
+      return w === 'yes' || w === 'true' || w === '1' || w === 'x';
+    }
+
+    function getDayChange(s) {
+      const curr = cleanPrice(s['Current Price']);
+      const prev = cleanPrice(s['Day-1']);
+      const qty  = parseFloat(s.Quantity) || 0;
+      if (!prev || !curr) return { dollar: 0, pct: 0 };
+      return {
+        dollar: (curr - prev) * qty,
+        pct:    ((curr - prev) / prev) * 100
+      };
+    }
+
+    // From peak: uses 52w High (col M, index 12) and 52w Low (col N, index 13) from sheet
+    // Stored as _52wHigh / _52wLow when loading data
+    function getFromPeak(s) {
+      const curr    = cleanPrice(s['Current Price']);
+      const high52  = cleanPrice(s['_52wHigh']);
+      const low52   = cleanPrice(s['_52wLow']);
+      if (!curr || !high52) return null;
+      const fromHigh = ((curr - high52) / high52) * 100;
+      const range    = high52 - low52;
+      const posInRange = range > 0 ? ((curr - low52) / range) * 100 : null;
+      const atPeak   = curr >= high52 * 0.999; // within 0.1% counts as at peak
+      return { pct: fromHigh, atPeak, posInRange, high52, low52 };
+    }
+
+    function isMobile() {
+      return window.innerWidth <= 600;
+    }
+
+    // ── Render ───────────────────────────────────────────
+    function render() {
+      if (!portfolioData.length) return;
+
+      const stocks = portfolioData.filter(s => !isWatchlisted(s));
+
+      const totalValue  = stocks.reduce((sum, s) => sum + getStockValue(s), 0);
+      const totalCost   = stocks.reduce((sum, s) => sum + getStockCost(s), 0);
+      const totalPL     = totalValue - totalCost;
+      const totalPLPct  = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
+      const totalDayChg = stocks.reduce((sum, s) => sum + getDayChange(s).dollar, 0);
+      const totalDayPct = totalValue > 0 ? (totalDayChg / (totalValue - totalDayChg)) * 100 : 0;
+      const isUp = totalDayChg >= 0;
+      const isPLUp = totalPL >= 0;
+
+      let html = '';
+
+      // ── Summary cards ──
+      html += `<div class="summary">
+        <div class="summary-card full">
+          <div class="summary-label">Total Portfolio Value</div>
+          <div class="summary-value total-value">${fmt(totalValue, 0)}</div>
+          <div style="margin-top:0.45rem; font-family:'DM Mono',monospace; font-size:0.85rem; font-weight:600; color:${isPLUp ? 'var(--green)' : 'var(--red)'}; white-space:nowrap;">
+            ${isPLUp ? '+' : ''}${fmt(totalPL, 0)}&nbsp;<span style="font-size:0.8rem; color:${isPLUp ? '#6ee8a8' : '#ff8fa3'};">(${fmtPct(totalPLPct)})</span>
+            <span style="font-size:0.72rem; font-weight:400; color:#888899; margin-left:0.4rem;">total return</span>
+          </div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Today's Change</div>
+          <div class="summary-value ${isUp ? 'green' : 'red'}">${fmt(totalDayChg, 0)}</div>
+          <div class="summary-sub">${fmtPct(totalDayPct)} vs yesterday</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Movers</div>
+          <div class="summary-value" style="font-size:1.4rem;">
+            <span class="green">${stocks.filter(s => getDayChange(s).dollar > 0).length} ↑</span>
+            &nbsp;
+            <span class="red">${stocks.filter(s => getDayChange(s).dollar < 0).length} ↓</span>
+          </div>
+        </div>
+      </div>`;
+
+      // ── Bar chart ──
+      // Sort by $ change descending for the chart
+      const sorted = [...stocks].sort((a, b) => getDayChange(b).dollar - getDayChange(a).dollar);
+      const mobile = isMobile();
+      // On mobile: horizontal bars, height scales with number of stocks
+      const chartHeight = mobile ? Math.max(200, sorted.length * 36) : 220;
+      html += `<div class="chart-section">
+        <div class="section-title">Today's Change Per Holding</div>
+        <div class="chart-wrap" style="height:${chartHeight}px"><canvas id="barChart"></canvas></div>
+      </div>`;
+
+      // ── Holdings list ──
+      html += '<div class="holdings-list">';
+      sorted.forEach(s => {
+        const chg  = getDayChange(s);
+        const val  = getStockValue(s);
+        const peak = getFromPeak(s);
+        const dir  = chg.dollar >= 0 ? 'up' : 'down';
+        const cls  = chg.dollar >= 0 ? 'green' : 'red';
+        const name   = s['Firm name'] || s['Ticker/Symbol'] || 'Unknown';
+        const ticker = s['Ticker/Symbol'] || '';
+
+        // Peak badge
+        let peakHtml = '';
+        if (peak) {
+          if (peak.atPeak) {
+            peakHtml = `<span class="peak-badge">At peak</span>`;
+          } else {
+            const badgeCls = peak.pct < -20 ? 'alert' : peak.pct < -10 ? 'warn' : '';
+            peakHtml = `<span class="peak-badge ${badgeCls}">Peak ${peak.pct.toFixed(1)}%</span>`;
+          }
+        }
+
+        const cost    = getStockCost(s);
+        const pl      = val - cost;
+        const plCls   = pl >= 0 ? 'var(--green)' : 'var(--red)';
+        const plStr   = (pl >= 0 ? '+' : '') + fmt(pl, 0);
+
+        html += `<div class="holding-row ${dir}">
+          <div>
+            <div class="holding-name">${name}</div>
+            <div class="holding-ticker">${ticker}</div>
+            <div class="holding-meta">${peakHtml}</div>
+          </div>
+          <div class="holding-right">
+            <div class="holding-change ${cls}">
+              ${fmt(chg.dollar, 0)}
+              <span class="pct-badge ${dir}">${fmtPct(chg.pct)}</span>
+            </div>
+            <div style="font-family:'DM Mono',monospace; font-size:0.72rem; color:#c0c0cc; margin-top:0.2rem; text-align:right;">
+              $${cleanPrice(s['Current Price']).toFixed(2)}
+            </div>
+            <div class="holding-value">
+              Total ${fmt(val, 0)}&nbsp;<span style="color:${plCls}; font-weight:700;">${plStr}</span>
+            </div>
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+
+      html += `<div class="timestamp">Updated ${new Date().toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' })}</div>`;
+
+      document.getElementById('app').innerHTML = html;
+      buildChart(sorted, mobile);
+    }
+
+    function buildChart(stocks, mobile) {
+      const canvas = document.getElementById('barChart');
+      if (!canvas) return;
+
+      const labels  = stocks.map(s => s['Ticker/Symbol'] || s['Firm name'] || '?');
+      const values  = stocks.map(s => getDayChange(s).dollar);
+      const colors  = values.map(v => v >= 0 ? 'rgba(0,230,118,0.85)' : 'rgba(255,77,109,0.85)');
+      const borders = values.map(v => v >= 0 ? '#00e676' : '#ff4d6d');
+
+      if (barChart) barChart.destroy();
+
+      Chart.defaults.color = '#666672';
+      Chart.defaults.borderColor = '#2a2a33';
+
+      // Mobile: horizontal bars (indexAxis: 'y'), sorted ascending so biggest is top
+      const isHoriz = !!mobile;
+      const displayLabels = isHoriz ? [...labels].reverse() : labels;
+      const displayValues = isHoriz ? [...values].reverse() : values;
+      const displayColors = isHoriz ? [...colors].reverse() : colors;
+      const displayBorders = isHoriz ? [...borders].reverse() : borders;
+      const displayStocks = isHoriz ? [...stocks].reverse() : stocks;
+
+      barChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: displayLabels,
+          datasets: [{
+            data: displayValues,
+            backgroundColor: displayColors,
+            borderColor: displayBorders,
+            borderWidth: 1,
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          indexAxis: isHoriz ? 'y' : 'x',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#16161a',
+              borderColor: '#2a2a33',
+              borderWidth: 1,
+              titleColor: '#f0f0f0',
+              bodyColor: '#f0f0f0',
+              callbacks: {
+                label: ctx => {
+                  const v = ctx.raw;
+                  const s = displayStocks[ctx.dataIndex];
+                  const chg = getDayChange(s);
+                  return ` ${fmt(v, 2)}  (${fmtPct(chg.pct)})`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: isHoriz ? '#1e1e24' : 'transparent' },
+              ticks: {
+                font: { family: 'DM Mono', size: 10 },
+                color: '#666672',
+                callback: isHoriz
+                  ? v => (v >= 0 ? '$' : '-$') + Math.abs(v).toLocaleString()
+                  : undefined
+              }
+            },
+            y: {
+              grid: { color: isHoriz ? 'transparent' : '#1e1e24' },
+              ticks: {
+                font: { family: 'DM Mono', size: isHoriz ? 11 : 10 },
+                color: '#aaaaaa',
+                callback: isHoriz
+                  ? undefined
+                  : v => (v >= 0 ? '$' : '-$') + Math.abs(v).toLocaleString()
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // ── Data Loading ─────────────────────────────────────
+    async function loadData() {
+      document.getElementById('app').innerHTML = '<div class="empty-state loading"><p>Loading portfolio…</p></div>';
+      try {
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
+        const res  = await fetch(url);
+        const json = await res.json();
+        if (json.values && json.values.length > 1) {
+          const headers = json.values[0];
+          portfolioData = json.values.slice(1).map(row => {
+            const obj = {};
+            headers.forEach((h, i) => { obj[h] = row[i] || ''; });
+            // Capture 52w High (col M = index 12) and 52w Low (col N = index 13) by position
+            obj['_52wHigh'] = row[12] || '';
+            obj['_52wLow']  = row[13] || '';
+            return obj;
+          });
+          localStorage.setItem('sr_cache', JSON.stringify(portfolioData));
+          render();
+        } else {
+          showError('No data found in sheet.');
+        }
+      } catch (e) {
+        const cached = localStorage.getItem('sr_cache');
+        if (cached) {
+          portfolioData = JSON.parse(cached);
+          render();
+          document.getElementById('app').insertAdjacentHTML('beforeend',
+            '<div class="timestamp" style="color:#f97316;">⚠ Using cached data — could not refresh</div>');
+        } else {
+          showError('Error: ' + e.message);
+        }
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('app').innerHTML = `<div class="empty-state"><p style="color:var(--red)">${msg}</p></div>`;
+    }
+
+    // ── Modal ─────────────────────────────────────────────
+    function openModal() {
+      document.getElementById('sheetsUrl').value = SHEET_ID ? 'https://docs.google.com/spreadsheets/d/' + SHEET_ID : '';
+      document.getElementById('apiKey').value    = API_KEY;
+      document.getElementById('sheetName').value = SHEET_NAME;
+      document.getElementById('modal').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('open');
+    }
+
+    document.getElementById('setupBtn').onclick      = openModal;
+    document.getElementById('emptySetupBtn').onclick = openModal;
+    document.getElementById('cancelBtn').onclick     = closeModal;
+
+    document.getElementById('saveBtn').onclick = () => {
+      const urlInput = document.getElementById('sheetsUrl').value;
+      const match    = urlInput.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (!match) { alert('Invalid Sheets URL'); return; }
+      SHEET_ID   = match[1];
+      API_KEY    = document.getElementById('apiKey').value.trim();
+      SHEET_NAME = document.getElementById('sheetName').value.trim() || 'Sheet1';
+      localStorage.setItem('sr_sheetId',   SHEET_ID);
+      localStorage.setItem('sr_apiKey',    API_KEY);
+      localStorage.setItem('sr_sheetName', SHEET_NAME);
+      closeModal();
+      loadData();
+    };
+
+    // Close modal on backdrop click
+    document.getElementById('modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('modal')) closeModal();
+    });
+
+    // ── Resize: re-render on orientation change ───────────
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (portfolioData.length) render();
+      }, 250);
+    });
+
+    // ── Boot ──────────────────────────────────────────────
+    if (SHEET_ID && API_KEY) {
+      loadData();
+    }
+  </script>
+</body>
+</html>
