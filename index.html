@@ -607,16 +607,14 @@
 
       const isHoriz = !!mobile;
 
-      // Sort for display:
-      // Vertical bars: index 0 = LEFTMOST → biggest gain first
-      // Horizontal bars: index 0 = BOTTOM row → biggest gain last (so it appears at top)
+      // Gains first, biggest gain at index 0.
+      // Chart.js: index 0 = TOP for horizontal, LEFT for vertical — gains first works for both.
       const sortedForDisplay = [...stocks].sort((a, b) => {
         const ga = getDayChange(a).dollar;
         const gb = getDayChange(b).dollar;
-        const aPos = ga >= 0, bPos = gb >= 0;
-        if (aPos && !bPos) return isHoriz ? 1 : -1;
-        if (!aPos && bPos) return isHoriz ? -1 : 1;
-        return isHoriz ? ga - gb : gb - ga;
+        if (ga >= 0 && gb < 0) return -1;
+        if (ga < 0 && gb >= 0) return 1;
+        return gb - ga;
       });
 
       const dispTickers  = sortedForDisplay.map(s => s['Ticker/Symbol'] || s['Firm name'] || '?');
