@@ -80,6 +80,22 @@
     }
     .setup-btn:hover { color: var(--text); border-color: #888; }
 
+    .refresh-btn {
+      background: var(--surface2);
+      color: var(--green);
+      border: 1px solid var(--border-hi);
+      width: 44px; height: 44px;
+      border-radius: 8px;
+      font-size: 1.3rem;
+      line-height: 1;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .refresh-btn:hover { background: var(--surface); border-color: var(--green); }
+    .refresh-btn.spinning { animation: spin 0.8s linear infinite; color: var(--dim); border-color: var(--border); cursor: default; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     /* ── Summary Cards ── */
     .summary {
       display: grid;
@@ -369,7 +385,10 @@
       <div class="logo-icon">📈</div>
       <span class="logo-text">Portfolio · Today</span>
     </div>
-    <button class="setup-btn" id="setupBtn">Setup</button>
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+      <button class="refresh-btn" id="refreshBtn" title="Refresh data">↻</button>
+      <button class="setup-btn" id="setupBtn">Setup</button>
+    </div>
   </div>
 
   <div id="app">
@@ -591,7 +610,9 @@
       });
       html += '</div>';
 
-      html += `<div class="timestamp">Updated ${new Date().toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' })}</div>`;
+      const lastLoad = parseInt(localStorage.getItem('sr_lastLoad') || '0');
+      const lastLoadStr = lastLoad ? new Date(lastLoad).toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' }) : '—';
+      html += `<div class="timestamp">Last loaded ${lastLoadStr}</div>`;
 
       document.getElementById('app').innerHTML = html;
       buildChart(sorted, mobile);
@@ -731,6 +752,8 @@
 
     // ── Data Loading ─────────────────────────────────────
     async function loadData() {
+      const btn = document.getElementById('refreshBtn');
+      if (btn) { btn.classList.add('spinning'); btn.disabled = true; }
       document.getElementById('app').innerHTML = '<div class="empty-state loading"><p>Loading portfolio…</p></div>';
       try {
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
@@ -746,7 +769,9 @@
             obj['_52wLow']  = row[13] || '';
             return obj;
           });
+          const now = Date.now();
           localStorage.setItem('sr_cache', JSON.stringify(portfolioData));
+          localStorage.setItem('sr_lastLoad', now);
           render();
         } else {
           showError('No data found in sheet.');
@@ -761,6 +786,8 @@
         } else {
           showError('Error: ' + e.message);
         }
+      } finally {
+        if (btn) { btn.classList.remove('spinning'); btn.disabled = false; }
       }
     }
 
@@ -803,6 +830,11 @@
       if (e.target === document.getElementById('modal')) closeModal();
     });
 
+    document.getElementById('refreshBtn').onclick = () => {
+      if (SHEET_ID && API_KEY) loadData();
+      else openModal();
+    };
+
     // ── Resize: re-render on orientation change ───────────
     let resizeTimer;
     window.addEventListener('resize', () => {
@@ -814,7 +846,29 @@
 
     // ── Boot ──────────────────────────────────────────────
     if (SHEET_ID && API_KEY) {
-      loadData();
+      const lastLoad = parseInt(localStorage.getItem('sr_lastLoad') || '0');
+      const oneHour  = 60 * 60 * 1000;
+      const stale    = (Date.now() - lastLoad) > oneHour;
+
+      if (stale) {
+        // Data is old — fetch fresh from Sheets
+        loadData();
+      } else {
+        // Recent data — render from cache immediately, no network call
+        const cached = localStorage.getItem('sr_cache');
+        if (cached) {
+          portfolioData = JSON.parse(cached);
+          render();
+        } else {
+          loadData();
+        }
+      }
+
+      // Auto-refresh check every 5 minutes while page is open
+      setInterval(() => {
+        const last = parseInt(localStorage.getItem('sr_lastLoad') || '0');
+        if ((Date.now() - last) > oneHour) loadData();
+      }, 5 * 60 * 1000);
     }
   </script>
 </body>
