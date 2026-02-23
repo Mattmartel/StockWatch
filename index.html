@@ -58,7 +58,7 @@
 
     .logo-text {
       font-family: 'DM Mono', monospace;
-      font-size: 0.82rem;
+      font-size: 0.89rem;
       font-weight: 600;
       color: var(--secondary);
       letter-spacing: 0.07em;
@@ -71,7 +71,7 @@
       border: 1px solid var(--border-hi);
       padding: 0.55rem 1.1rem;
       border-radius: 8px;
-      font-size: 0.88rem;
+      font-size: 0.89rem;
       font-family: 'DM Mono', monospace;
       font-weight: 600;
       cursor: pointer;
@@ -99,7 +99,7 @@
 
     .summary-label {
       font-family: 'DM Mono', monospace;
-      font-size: 0.7rem;
+      font-size: 0.89rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--dim);
@@ -141,7 +141,7 @@
 
     .section-title {
       font-family: 'DM Mono', monospace;
-      font-size: 0.7rem;
+      font-size: 0.89rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--dim);
@@ -182,7 +182,7 @@
 
     .holding-ticker {
       font-family: 'DM Mono', monospace;
-      font-size: 0.82rem;
+      font-size: 0.89rem;
       color: var(--secondary);
       margin-top: 0.2rem;
       font-weight: 500;
@@ -198,7 +198,7 @@
     /* Peak: plain text, barely there unless severe */
     .peak-badge {
       font-family: 'DM Mono', monospace;
-      font-size: 0.72rem;
+      font-size: 0.89rem;
       color: #4a4a6a;
       font-weight: 500;
     }
@@ -218,7 +218,7 @@
     /* Current price — secondary but readable */
     .holding-price {
       font-family: 'DM Mono', monospace;
-      font-size: 0.88rem;
+      font-size: 0.89rem;
       font-weight: 500;
       color: var(--secondary);
       margin-top: 0.25rem;
@@ -237,7 +237,7 @@
 
     .pct-badge {
       display: inline-block;
-      font-size: 0.78rem;
+      font-size: 0.89rem;
       font-family: 'DM Mono', monospace;
       padding: 0.18rem 0.45rem;
       border-radius: 5px;
@@ -297,7 +297,7 @@
     .field label {
       display: block;
       font-family: 'DM Mono', monospace;
-      font-size: 0.72rem;
+      font-size: 0.89rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--secondary);
@@ -350,7 +350,7 @@
     /* ── Timestamp ── */
     .timestamp {
       font-family: 'DM Mono', monospace;
-      font-size: 0.8rem;
+      font-size: 0.89rem;
       color: var(--secondary);
       text-align: center;
       margin-top: 2rem;
@@ -498,7 +498,7 @@
           <div class="summary-value total-value">${fmt(totalValue, 0)}</div>
           <div style="margin-top:0.5rem; font-family:'DM Mono',monospace; font-size:0.95rem; font-weight:700; color:${isPLUp ? 'var(--green)' : 'var(--red)'}; white-space:nowrap;">
             ${isPLUp ? '+' : ''}${fmt(totalPL, 0)}&nbsp;<span style="font-size:0.9rem; color:${isPLUp ? '#1aff8c' : '#ff5577'};">(${fmtPct(totalPLPct)})</span>
-            <span style="font-size:0.78rem; font-weight:500; color:var(--secondary); margin-left:0.5rem;">total return</span>
+            <span style="font-size:0.89rem; font-weight:500; color:var(--secondary); margin-left:0.5rem;">total return</span>
           </div>
         </div>
         <div class="summary-card">
@@ -512,6 +512,14 @@
             <span class="green">${stocks.filter(s => getDayChange(s).dollar > 0).length} ↑</span>
             &nbsp;
             <span class="red">${stocks.filter(s => getDayChange(s).dollar < 0).length} ↓</span>
+          </div>
+          <div style="margin-top:0.45rem; display:flex; flex-direction:column; gap:0.2rem;">
+            <div style="font-family:'DM Mono',monospace; font-size:0.89rem; font-weight:600; color:var(--green);">
+              +${fmt(stocks.reduce((sum, s) => { const c = getDayChange(s).dollar; return sum + (c > 0 ? c : 0); }, 0), 0)}
+            </div>
+            <div style="font-family:'DM Mono',monospace; font-size:0.89rem; font-weight:600; color:var(--red);">
+              ${fmt(stocks.reduce((sum, s) => { const c = getDayChange(s).dollar; return sum + (c < 0 ? c : 0); }, 0), 0)}
+            </div>
           </div>
         </div>
       </div>`;
@@ -593,25 +601,30 @@
       const canvas = document.getElementById('barChart');
       if (!canvas) return;
 
-      const tickers   = stocks.map(s => s['Ticker/Symbol'] || s['Firm name'] || '?');
-      const firmNames = stocks.map(s => (s['Firm name'] || s['Ticker/Symbol'] || '?').split(' ').slice(0, 2).join(' '));
-      const values    = stocks.map(s => getDayChange(s).dollar);
-      const colors    = values.map(v => v >= 0 ? 'rgba(0,230,118,0.85)' : 'rgba(255,77,109,0.85)');
-      const borders   = values.map(v => v >= 0 ? '#00e676' : '#ff4d6d');
-
       if (barChart) barChart.destroy();
+      Chart.defaults.color = '#9898b8';
+      Chart.defaults.borderColor = '#2e2e42';
 
-      Chart.defaults.color = '#666672';
-      Chart.defaults.borderColor = '#2a2a33';
-
-      // Horizontal: first item = TOP of chart, so use stocks as-is (biggest gain first)
       const isHoriz = !!mobile;
-      const dispTickers   = isHoriz ? [...tickers].reverse()   : tickers;
-      const dispNames     = isHoriz ? [...firmNames].reverse() : firmNames;
-      const dispValues    = isHoriz ? [...values].reverse()    : values;
-      const dispColors    = isHoriz ? [...colors].reverse()    : colors;
-      const dispBorders   = isHoriz ? [...borders].reverse()   : borders;
-      const dispStocks    = isHoriz ? [...stocks].reverse()    : stocks;
+
+      // Sort for display:
+      // Vertical bars: index 0 = LEFTMOST → biggest gain first
+      // Horizontal bars: index 0 = BOTTOM row → biggest gain last (so it appears at top)
+      const sortedForDisplay = [...stocks].sort((a, b) => {
+        const ga = getDayChange(a).dollar;
+        const gb = getDayChange(b).dollar;
+        const aPos = ga >= 0, bPos = gb >= 0;
+        if (aPos && !bPos) return isHoriz ? 1 : -1;
+        if (!aPos && bPos) return isHoriz ? -1 : 1;
+        return isHoriz ? ga - gb : gb - ga;
+      });
+
+      const dispTickers  = sortedForDisplay.map(s => s['Ticker/Symbol'] || s['Firm name'] || '?');
+      const dispNames    = sortedForDisplay.map(s => (s['Firm name'] || s['Ticker/Symbol'] || '?').split(' ').slice(0, 2).join(' '));
+      const dispValues   = sortedForDisplay.map(s => getDayChange(s).dollar);
+      const dispColors   = dispValues.map(v => v >= 0 ? 'rgba(0,230,118,0.85)' : 'rgba(255,77,109,0.85)');
+      const dispBorders  = dispValues.map(v => v >= 0 ? '#00e676' : '#ff4d6d');
+      const dispStocks   = sortedForDisplay;
 
       // Custom plugin: draw company name inside/outside bar end
       const nameLabelPlugin = {
@@ -621,7 +634,7 @@
           const { ctx, data } = chart;
           const meta = chart.getDatasetMeta(0);
           ctx.save();
-          ctx.font = '500 11px "DM Mono", monospace';
+          ctx.font = '600 15px "DM Mono", monospace';
           meta.data.forEach((bar, i) => {
             const val   = data.datasets[0].data[i];
             const name  = dispNames[i];
@@ -642,7 +655,7 @@
       };
 
       const axisTickConfig = {
-        font: { family: 'DM Mono', size: 12, weight: '700' },
+        font: { family: 'DM Mono', size: 15, weight: '700' },
         color: '#ffffff',
         callback: v => (v >= 0 ? '$' : '-$') + Math.abs(v).toLocaleString()
       };
@@ -689,7 +702,7 @@
               position: 'bottom',
               grid: { color: isHoriz ? '#1e1e24' : 'transparent' },
               ticks: isHoriz ? axisTickConfig : {
-                font: { family: 'DM Mono', size: 10 },
+                font: { family: 'DM Mono', size: 15 },
                 color: '#666672',
               }
             },
@@ -706,7 +719,7 @@
             y: {
               grid: { color: isHoriz ? 'transparent' : '#1e1e2e' },
               ticks: {
-                font: { family: 'DM Mono', size: isHoriz ? 11 : 10 },
+                font: { family: 'DM Mono', size: 15 },
                 color: '#c8c8e0',
                 callback: isHoriz
                   ? undefined
