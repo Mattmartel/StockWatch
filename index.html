@@ -6,30 +6,36 @@
   <title>Portfolio · Today</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap');
 
     :root {
-      --bg: #0a0a0c;
-      --surface: #1a1a20;
-      --surface2: #222229;
-      --border: #35353f;
-      --text: #f4f4f6;
-      --muted: #9898a8;
-      --green: #00e676;
-      --green-dim: rgba(0,230,118,0.15);
-      --red: #ff4d6d;
-      --red-dim: rgba(255,77,109,0.15);
-      --accent: #7c6af7;
+      --bg:         #080810;
+      --surface:    #13131c;
+      --surface2:   #1c1c28;
+      --border:     #2e2e42;
+      --border-hi:  #48486a;
+      --text:       #f0f0f8;
+      --secondary:  #c8c8e0;   /* was near-invisible grey — now proper readable */
+      --dim:        #9898b8;   /* lowest tier — still passes contrast on dark bg */
+      --green:      #1aff8c;
+      --green-dim:  rgba(26,255,140,0.14);
+      --red:        #ff5577;
+      --red-dim:    rgba(255,85,119,0.14);
+      --accent:     #7c6af7;
+      --yellow:     #ffd060;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 17px; }   /* bump base — everything rem-based scales up */
 
     body {
       background: var(--bg);
       color: var(--text);
       font-family: 'DM Sans', sans-serif;
       min-height: 100vh;
-      padding: 1.5rem 1.25rem 3rem;
+      padding: 1.4rem 1.1rem 4rem;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── Header ── */
@@ -37,79 +43,76 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1.75rem;
+      margin-bottom: 1.5rem;
     }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-    }
+    .logo { display: flex; align-items: center; gap: 0.6rem; }
 
     .logo-icon {
-      width: 28px;
-      height: 28px;
-      background: linear-gradient(135deg, #00e676, #00b0ff);
-      border-radius: 7px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, #1aff8c, #00c8ff);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
     }
 
     .logo-text {
       font-family: 'DM Mono', monospace;
-      font-size: 0.9rem;
-      font-weight: 500;
-      color: #b0b0be;
-      letter-spacing: 0.06em;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--secondary);
+      letter-spacing: 0.07em;
       text-transform: uppercase;
     }
 
     .setup-btn {
       background: var(--surface2);
-      color: #b0b0be;
-      border: 1px solid var(--border);
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
+      color: var(--secondary);
+      border: 1px solid var(--border-hi);
+      padding: 0.55rem 1.1rem;
+      border-radius: 8px;
+      font-size: 0.88rem;
       font-family: 'DM Mono', monospace;
+      font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
+      min-height: 44px;   /* iOS touch target */
     }
-    .setup-btn:hover { color: var(--text); border-color: #666; }
+    .setup-btn:hover { color: var(--text); border-color: #888; }
 
     /* ── Summary Cards ── */
     .summary {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 0.75rem;
-      margin-bottom: 1.75rem;
+      margin-bottom: 1.5rem;
     }
 
     .summary-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.25rem 1.4rem;
+      border-radius: 16px;
+      padding: 1.25rem 1.35rem;
     }
 
     .summary-card.full { grid-column: span 2; }
 
     .summary-label {
       font-family: 'DM Mono', monospace;
-      font-size: 0.72rem;
-      letter-spacing: 0.09em;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: #a0a0b4;
+      color: var(--dim);
       margin-bottom: 0.5rem;
+      font-weight: 600;
     }
 
     .summary-value {
-      font-size: 2.1rem;
+      font-size: 1.95rem;
       font-weight: 700;
       letter-spacing: -0.04em;
       line-height: 1;
+      color: var(--text);
     }
 
     .summary-value.total-value {
@@ -118,79 +121,71 @@
     }
 
     .summary-sub {
-      font-size: 0.875rem;
-      color: #a0a0b4;
-      margin-top: 0.35rem;
+      font-size: 0.95rem;
+      color: var(--secondary);
+      margin-top: 0.4rem;
       font-weight: 500;
     }
 
     .green { color: var(--green); }
-    .red { color: var(--red); }
+    .red   { color: var(--red); }
 
     /* ── Chart Section ── */
     .chart-section {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.25rem 1.25rem 1rem;
-      margin-bottom: 1.5rem;
+      border-radius: 16px;
+      padding: 1.1rem 1.1rem 0.9rem;
+      margin-bottom: 1.25rem;
     }
 
     .section-title {
       font-family: 'DM Mono', monospace;
-      font-size: 0.72rem;
-      letter-spacing: 0.09em;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: #a0a0b4;
-      margin-bottom: 1rem;
+      color: var(--dim);
+      margin-bottom: 0.9rem;
+      font-weight: 600;
     }
 
-    .chart-wrap {
-      position: relative;
-      height: 220px;
-    }
+    .chart-wrap { position: relative; height: 230px; }
 
-    /* on mobile, taller to accommodate horizontal bars */
     @media (max-width: 480px) {
-      .chart-wrap { height: auto; min-height: 180px; }
-      .chart-wrap.dynamic-height { /* set by JS */ }
+      .chart-wrap { height: auto; min-height: 200px; }
       .chart-section { max-width: 430px; margin-left: auto; margin-right: auto; overflow: hidden; }
     }
 
     /* ── Holdings List ── */
-    .holdings-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
+    .holdings-list { display: flex; flex-direction: column; gap: 0.65rem; }
 
     .holding-row {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1rem 1.1rem;
+      border-radius: 14px;
+      padding: 1.05rem 1.15rem;
       display: grid;
       grid-template-columns: 1fr auto;
       align-items: start;
       gap: 0.75rem;
-      transition: border-color 0.2s;
     }
 
-    .holding-row.up { border-left: 3px solid var(--green); }
-    .holding-row.down { border-left: 3px solid var(--red); }
+    .holding-row.up   { border-left: 4px solid var(--green); }
+    .holding-row.down { border-left: 4px solid var(--red); }
 
     .holding-name {
-      font-weight: 600;
-      font-size: 1.075rem;
-      line-height: 1.2;
+      font-weight: 700;
+      font-size: 1.1rem;
+      line-height: 1.25;
       color: #ffffff;
     }
 
     .holding-ticker {
       font-family: 'DM Mono', monospace;
-      font-size: 0.78rem;
-      color: #a0a0b4;
+      font-size: 0.82rem;
+      color: var(--secondary);
       margin-top: 0.2rem;
+      font-weight: 500;
     }
 
     .holding-meta {
@@ -200,31 +195,40 @@
       flex-wrap: wrap;
     }
 
+    /* Peak: plain text, barely there unless severe */
     .peak-badge {
       font-family: 'DM Mono', monospace;
-      font-size: 0.68rem;
-      color: #5a5a72;
-      letter-spacing: 0.02em;
+      font-size: 0.72rem;
+      color: #4a4a6a;
+      font-weight: 500;
     }
+    .peak-badge.warn  { color: var(--yellow); opacity: 0.6; }
+    .peak-badge.alert { color: var(--red);    opacity: 0.55; }
 
-    .peak-badge.warn { color: #8a7a2a; }
-    .peak-badge.alert { color: #8a3040; }
+    .holding-right { text-align: right; flex-shrink: 0; }
 
-    .holding-right {
-      text-align: right;
-      flex-shrink: 0;
-    }
-
+    /* Day $ change — the headline number */
     .holding-change {
       font-family: 'DM Mono', monospace;
-      font-size: 1.075rem;
-      font-weight: 600;
+      font-size: 1.15rem;
+      font-weight: 700;
       white-space: nowrap;
     }
 
+    /* Current price — secondary but readable */
+    .holding-price {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--secondary);
+      margin-top: 0.25rem;
+      text-align: right;
+    }
+
+    /* Total holding value + P/L */
     .holding-value {
       font-family: 'DM Mono', monospace;
-      font-size: 0.875rem;
+      font-size: 0.92rem;
       font-weight: 700;
       color: #ffffff;
       margin-top: 0.3rem;
@@ -233,138 +237,124 @@
 
     .pct-badge {
       display: inline-block;
-      font-size: 0.75rem;
+      font-size: 0.78rem;
       font-family: 'DM Mono', monospace;
-      padding: 0.15rem 0.4rem;
-      border-radius: 4px;
+      padding: 0.18rem 0.45rem;
+      border-radius: 5px;
       margin-left: 0.35rem;
-      font-weight: 600;
+      font-weight: 700;
     }
 
-    .pct-badge.up { background: var(--green-dim); color: var(--green); }
-    .pct-badge.down { background: var(--red-dim); color: var(--red); }
-
-    @media (max-width: 380px) {
-      body { padding: 1rem 0.875rem 2.5rem; }
-      .summary-value.total-value { font-size: 2.1rem; }
-      .holding-name { font-size: 1rem; }
-    }
+    .pct-badge.up   { background: var(--green-dim); color: var(--green); }
+    .pct-badge.down { background: var(--red-dim);   color: var(--red); }
 
     /* ── Empty/Setup State ── */
-    .empty-state {
-      text-align: center;
-      padding: 3rem 1rem;
-      color: var(--muted);
-    }
-
-    .empty-state p { font-size: 0.9rem; margin-bottom: 1rem; }
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--secondary); }
+    .empty-state p { font-size: 1rem; margin-bottom: 1rem; }
 
     .empty-setup-btn {
       background: var(--accent);
       color: white;
       border: none;
-      padding: 0.6rem 1.5rem;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      font-weight: 500;
+      padding: 0.75rem 1.75rem;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
       cursor: pointer;
       font-family: 'DM Sans', sans-serif;
+      min-height: 44px;
     }
 
     /* ── Modal ── */
     .modal-overlay {
       display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.85);
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.88);
       z-index: 100;
-      align-items: center;
-      justify-content: center;
+      align-items: center; justify-content: center;
       padding: 1.5rem;
     }
-
     .modal-overlay.open { display: flex; }
 
     .modal {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.5rem;
-      width: 100%;
-      max-width: 420px;
+      border: 1px solid var(--border-hi);
+      border-radius: 18px;
+      padding: 1.75rem;
+      width: 100%; max-width: 420px;
+      max-height: 90vh; overflow-y: auto;
     }
 
     .modal h2 {
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin-bottom: 1.25rem;
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 1.35rem;
+      color: #ffffff;
     }
 
-    .field { margin-bottom: 0.875rem; }
+    .field { margin-bottom: 1rem; }
 
     .field label {
       display: block;
       font-family: 'DM Mono', monospace;
-      font-size: 0.65rem;
+      font-size: 0.72rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 0.4rem;
+      color: var(--secondary);
+      margin-bottom: 0.45rem;
+      font-weight: 600;
     }
 
     .field input {
       width: 100%;
       background: var(--bg);
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-hi);
       color: var(--text);
-      padding: 0.55rem 0.75rem;
-      border-radius: 7px;
-      font-size: 0.875rem;
+      padding: 0.7rem 0.9rem;
+      border-radius: 9px;
+      font-size: 1rem;
       font-family: 'DM Sans', sans-serif;
       outline: none;
       transition: border-color 0.2s;
+      min-height: 48px;
     }
-
     .field input:focus { border-color: var(--accent); }
 
-    .modal-actions {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 1.25rem;
-    }
+    .modal-actions { display: flex; gap: 0.65rem; margin-top: 1.5rem; }
 
     .btn-save {
       flex: 1;
       background: var(--accent);
-      color: white;
-      border: none;
-      padding: 0.6rem;
-      border-radius: 7px;
-      font-size: 0.875rem;
-      font-weight: 500;
+      color: white; border: none;
+      padding: 0.75rem;
+      border-radius: 9px;
+      font-size: 1rem; font-weight: 600;
       cursor: pointer;
       font-family: 'DM Sans', sans-serif;
+      min-height: 48px;
     }
 
     .btn-cancel {
       flex: 1;
       background: var(--surface2);
-      color: var(--muted);
-      border: 1px solid var(--border);
-      padding: 0.6rem;
-      border-radius: 7px;
-      font-size: 0.875rem;
+      color: var(--secondary);
+      border: 1px solid var(--border-hi);
+      padding: 0.75rem;
+      border-radius: 9px;
+      font-size: 1rem;
       cursor: pointer;
       font-family: 'DM Sans', sans-serif;
+      min-height: 48px;
     }
 
     /* ── Timestamp ── */
     .timestamp {
       font-family: 'DM Mono', monospace;
-      font-size: 0.75rem;
-      color: #a0a0b4;
+      font-size: 0.8rem;
+      color: var(--secondary);
       text-align: center;
-      margin-top: 1.75rem;
+      margin-top: 2rem;
+      font-weight: 500;
     }
 
     /* ── Loading ── */
@@ -506,9 +496,9 @@
         <div class="summary-card full">
           <div class="summary-label">Total Portfolio Value</div>
           <div class="summary-value total-value">${fmt(totalValue, 0)}</div>
-          <div style="margin-top:0.5rem; font-family:'DM Mono',monospace; font-size:0.9rem; font-weight:600; color:${isPLUp ? 'var(--green)' : 'var(--red)'}; white-space:nowrap;">
-            ${isPLUp ? '+' : ''}${fmt(totalPL, 0)}&nbsp;<span style="font-size:0.85rem; color:${isPLUp ? '#6ee8a8' : '#ff8fa3'};">(${fmtPct(totalPLPct)})</span>
-            <span style="font-size:0.75rem; font-weight:400; color:#a0a0b4; margin-left:0.5rem;">total return</span>
+          <div style="margin-top:0.5rem; font-family:'DM Mono',monospace; font-size:0.95rem; font-weight:700; color:${isPLUp ? 'var(--green)' : 'var(--red)'}; white-space:nowrap;">
+            ${isPLUp ? '+' : ''}${fmt(totalPL, 0)}&nbsp;<span style="font-size:0.9rem; color:${isPLUp ? '#1aff8c' : '#ff5577'};">(${fmtPct(totalPLPct)})</span>
+            <span style="font-size:0.78rem; font-weight:500; color:var(--secondary); margin-left:0.5rem;">total return</span>
           </div>
         </div>
         <div class="summary-card">
@@ -582,11 +572,11 @@
               ${fmt(chg.dollar, 0)}
               <span class="pct-badge ${dir}">${fmtPct(chg.pct)}</span>
             </div>
-            <div style="font-family:'DM Mono',monospace; font-size:0.8rem; color:#b8b8cc; margin-top:0.25rem; text-align:right; font-weight:500;">
+            <div class="holding-price">
               $${cleanPrice(s['Current Price']).toFixed(2)}
             </div>
             <div class="holding-value">
-              Total ${fmt(val, 0)}&nbsp;<span style="color:${plCls}; font-weight:700;">${plStr}</span>
+              ${fmt(val, 0)}&nbsp;<span style="color:${plCls}; font-weight:700;">${plStr}</span>
             </div>
           </div>
         </div>`;
@@ -652,7 +642,7 @@
       };
 
       const axisTickConfig = {
-        font: { family: 'DM Mono', size: 11, weight: '700' },
+        font: { family: 'DM Mono', size: 12, weight: '700' },
         color: '#ffffff',
         callback: v => (v >= 0 ? '$' : '-$') + Math.abs(v).toLocaleString()
       };
@@ -714,10 +704,10 @@
               }
             } : {}),
             y: {
-              grid: { color: isHoriz ? 'transparent' : '#1e1e24' },
+              grid: { color: isHoriz ? 'transparent' : '#1e1e2e' },
               ticks: {
-                font: { family: 'DM Mono', size: isHoriz ? 10 : 10 },
-                color: '#888899',
+                font: { family: 'DM Mono', size: isHoriz ? 11 : 10 },
+                color: '#c8c8e0',
                 callback: isHoriz
                   ? undefined
                   : v => (v >= 0 ? '$' : '-$') + Math.abs(v).toLocaleString()
