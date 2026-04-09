@@ -1,0 +1,2392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NZME — Financial Dashboard 2020–2025</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bd-blue: #42a2dc;
+    --bd-red: #d0021b;
+    --ink: #111318;
+    --ink-mid: #444a56;
+    --ink-light: #8a90a0;
+    --rule: #e2e5ec;
+    --bg: #f7f8fa;
+    --white: #ffffff;
+    --green: #0a7c4b;
+    --amber: #d97706;
+    --cell-hover: #f0f6fc;
+    --up: #0a7c4b;
+    --down: #d0021b;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--ink);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    border-bottom: 3px solid var(--bd-blue);
+  }
+  .header-ticker {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--bd-blue);
+    letter-spacing: -0.5px;
+  }
+  .header-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    color: #fff;
+    font-weight: 600;
+  }
+  .header-meta {
+    margin-left: auto;
+    text-align: right;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-light);
+    line-height: 1.7;
+  }
+  .header-meta span {
+    color: #8bc4ec;
+  }
+
+  /* ── Tab nav ── */
+  .tab-nav {
+    background: var(--white);
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    padding: 0 32px;
+    gap: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .tab-btn {
+    padding: 14px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-mid);
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.active {
+    color: var(--bd-blue);
+    border-bottom-color: var(--bd-blue);
+  }
+
+  /* ── Layout ── */
+  .main { max-width: 1100px; margin: 0 auto; padding: 28px 32px 60px; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── Section titles ── */
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--rule);
+  }
+  .section-note {
+    font-size: 12.5px;
+    color: var(--ink-light);
+    margin-top: -10px;
+    margin-bottom: 16px;
+  }
+
+  /* ── KPI Cards ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .kpi-card {
+    background: var(--white);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--bd-blue);
+    padding: 14px 16px;
+    border-radius: 3px;
+  }
+  .kpi-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-light);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .kpi-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .kpi-value.negative { color: var(--bd-red); }
+  .kpi-delta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .kpi-delta.up { color: var(--up); }
+  .kpi-delta.down { color: var(--down); }
+  .kpi-year { font-size: 10px; color: var(--ink-light); margin-top: 3px; }
+
+  /* ── Charts grid ── */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+  .chart-box {
+    background: var(--white);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 20px;
+  }
+  .chart-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-light);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 14px;
+  }
+  .chart-box canvas { max-height: 200px; }
+
+  /* ── Tables ── */
+  .table-wrap {
+    background: var(--white);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    overflow: auto;
+    margin-bottom: 24px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: #f0f2f6;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: right;
+    color: var(--ink-mid);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--rule);
+    white-space: nowrap;
+  }
+  thead th:first-child { text-align: left; min-width: 220px; }
+  tbody tr:hover td { background: var(--cell-hover); }
+  tbody td {
+    padding: 9px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13.5px;
+    text-align: right;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink);
+  }
+  tbody td:first-child {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    text-align: left;
+    color: var(--ink);
+  }
+  tr.row-section td {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    background: #f7f9fc;
+    color: var(--ink);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--rule);
+    border-top: 2px solid var(--rule);
+  }
+  tr.row-total td {
+    font-weight: 700;
+    background: #eef5fb;
+    border-top: 2px solid var(--bd-blue);
+    border-bottom: 2px solid var(--bd-blue);
+  }
+  tr.row-subtotal td { font-weight: 600; border-top: 1px solid #c8d6e8; }
+  td.neg { color: var(--bd-red); }
+  td.pos { color: var(--green); }
+  td.dim { color: var(--ink-light); }
+  td.bold { font-weight: 600; }
+  td.indent { padding-left: 28px; }
+  td.source-note {
+    font-family: 'Inter', sans-serif;
+    font-size: 11.5px;
+    color: var(--ink-light);
+    text-align: left;
+    background: #fafbfc;
+    padding: 7px 14px;
+    font-style: italic;
+  }
+
+  /* ── Ratio table colours ── */
+  .ratio-good { color: var(--green); }
+  .ratio-bad { color: var(--bd-red); }
+  .ratio-mid { color: var(--amber); }
+
+  /* ── Footer note ── */
+  .footnotes {
+    font-size: 12px;
+    color: var(--ink-light);
+    line-height: 1.7;
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: var(--white);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+  }
+  .footnotes strong { color: var(--ink-mid); }
+
+  /* ── Non-GAAP badge ── */
+  .badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 5px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    vertical-align: middle;
+    margin-left: 4px;
+  }
+  .badge-gaap { background: #e8f0fe; color: #1a56b0; }
+  .badge-op { background: #fef3cd; color: #856404; }
+
+  /* ── Tooltip system ── */
+  .tt {
+    cursor: help;
+    border-bottom: 1px dashed var(--ink-light);
+  }
+  .tt-icon {
+    display: inline-block;
+    width: 13px; height: 13px; line-height: 13px;
+    text-align: center;
+    background: var(--rule);
+    color: var(--ink-mid);
+    border-radius: 50%;
+    font-size: 9px; font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    vertical-align: middle;
+    margin-left: 3px;
+    cursor: help;
+    flex-shrink: 0;
+  }
+  #tt-popup {
+    position: fixed;
+    z-index: 9999;
+    max-width: 300px;
+    background: #1c2030;
+    color: #dde2ee;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    line-height: 1.58;
+    padding: 10px 14px;
+    border-radius: 5px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+    border-left: 3px solid var(--bd-blue);
+  }
+  #tt-popup.visible { opacity: 1; }
+  #tt-popup .tt-head {
+    color: var(--bd-blue);
+    display: block;
+    margin-bottom: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+
+  /* ── Company switcher ── */
+  .co-bar {
+    background: #0a0e1a;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border-bottom: 1px solid #1e2436;
+  }
+  .co-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #4a5270;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding-right: 12px;
+    border-right: 1px solid #1e2436;
+    margin-right: 8px;
+  }
+  .co-btn {
+    padding: 10px 18px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6070a0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    letter-spacing: 0.03em;
+  }
+  .co-btn:hover { color: #a0b0d0; }
+  .co-btn.active {
+    color: #fff;
+    border-bottom-color: var(--bd-blue);
+  }
+  .co-btn.compare-btn.active {
+    color: #fff;
+    border-bottom-color: #f59e0b;
+  }
+  .co-section { display: none; }
+  .co-section.active { display: block; }
+
+
+  /* ── Summary panel ── */
+  .summary-panel {
+    background: var(--white);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--bd-blue);
+    border-radius: 3px;
+    padding: 18px 22px;
+    margin-bottom: 22px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: start;
+  }
+  .summary-panel.sky { border-left-color: #1a56b0; }
+  .summary-panel.compare { border-left-color: #f59e0b; }
+  .summary-body { }
+  .summary-headline {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 7px;
+    line-height: 1.3;
+  }
+  .summary-body p {
+    font-size: 13.5px;
+    color: var(--ink-mid);
+    line-height: 1.65;
+    margin: 0;
+  }
+  .summary-body p + p { margin-top: 6px; }
+  .summary-tags {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 150px;
+  }
+  .summary-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 2px;
+    text-align: center;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+  }
+  .tag-green { background: #e6f4ed; color: #0a6b3d; }
+  .tag-amber { background: #fef3cd; color: #7a5800; }
+  .tag-red   { background: #fde8e8; color: #9b1c1c; }
+  .tag-blue  { background: #e8f0fe; color: #1a56b0; }
+  .tag-grey  { background: #f0f2f6; color: #444a56; }
+
+
+  /* ── Forward estimates strip ── */
+  .fwd-strip {
+    background: var(--white);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    margin-bottom: 22px;
+    overflow: hidden;
+  }
+  .fwd-strip-header {
+    background: #f7f9fc;
+    padding: 8px 16px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--ink-light);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .fwd-strip-header span { font-weight: 400; font-size: 10px; text-transform: none; letter-spacing: 0; }
+  .fwd-table { width: 100%; border-collapse: collapse; }
+  .fwd-table th {
+    padding: 8px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-light);
+    text-align: right;
+    background: #fafbfc;
+    border-bottom: 1px solid var(--rule);
+  }
+  .fwd-table th:first-child { text-align: left; }
+  .fwd-table td {
+    padding: 8px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    text-align: right;
+    border-bottom: 1px solid var(--rule);
+  }
+  .fwd-table td:first-child { font-family: 'Inter', sans-serif; font-size: 13px; text-align: left; color: var(--ink); }
+  .fwd-table tr:last-child td { border-bottom: none; }
+  .fwd-change-up { color: var(--green); font-size: 11px; }
+  .fwd-change-dn { color: var(--bd-red); font-size: 11px; }
+  .fwd-change-fl { color: var(--ink-light); font-size: 11px; }
+
+  /* ── HY results banner ── */
+  .hy-banner {
+    background: linear-gradient(135deg, #0a2a6e 0%, #1a56b0 100%);
+    color: #fff;
+    border-radius: 3px;
+    padding: 16px 22px;
+    margin-bottom: 22px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 20px;
+    align-items: center;
+  }
+  .hy-banner-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.7;
+    margin-bottom: 5px;
+  }
+  .hy-banner-headline {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+  .hy-banner p {
+    font-size: 12.5px;
+    opacity: 0.85;
+    line-height: 1.55;
+    margin: 0;
+  }
+  .hy-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    min-width: 220px;
+  }
+  .hy-stat { text-align: center; }
+  .hy-stat-val { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 500; line-height: 1; }
+  .hy-stat-lbl { font-size: 10px; opacity: 0.65; margin-top: 3px; }
+  .hy-stat-chg { font-size: 11px; color: #86efac; margin-top: 1px; }
+
+  /* ── Corporate tab ── */
+  .corp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .corp-box {
+    background: var(--white);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .corp-box-title {
+    background: #f0f2f6;
+    padding: 9px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    border-bottom: 1px solid var(--rule);
+  }
+  .corp-box table { width: 100%; border-collapse: collapse; }
+  .corp-box td {
+    padding: 7px 14px;
+    font-size: 12.5px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .corp-box tr:last-child td { border-bottom: none; }
+  .corp-box td:first-child { color: var(--ink-light); font-size: 11.5px; width: 38%; }
+  .corp-box td:last-child { font-weight: 500; color: var(--ink); }
+  .holder-bar {
+    display: inline-block;
+    height: 7px;
+    background: var(--bd-blue);
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+    opacity: 0.6;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-ticker">NZM.NZ</div>
+    <div class="header-name">New Zealand Media and Entertainment</div>
+  </div>
+  <div class="header-meta">
+    <div>NZX: NZM &nbsp;·&nbsp; December year-end &nbsp;·&nbsp; NZD $'000</div>
+    <div>Source: <span>Annual reports 2021 – 2025</span> &nbsp;·&nbsp; Parsed from PDF</div>
+  </div>
+</div>
+
+
+<div class="co-bar">
+  <span class="co-label">Company</span>
+  <button class="co-btn active" onclick="switchCo('nzme', this)">NZM.NZ &nbsp;·&nbsp; NZME</button>
+  <button class="co-btn" onclick="switchCo('sky', this)">SKT.NZ &nbsp;·&nbsp; Sky TV</button>
+  <button class="co-btn compare-btn" onclick="switchCo('compare', this)">⇌ &nbsp;Compare</button>
+</div>
+
+<!-- NZME section -->
+<div class="co-section active" id="co-nzme">
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="showTab('overview')">Overview</button>
+  <button class="tab-btn" onclick="showTab('pl')">P&amp;L</button>
+  <button class="tab-btn" onclick="showTab('balance')">Balance sheet</button>
+  <button class="tab-btn" onclick="showTab('ratios')">Ratios &amp; KPIs</button>
+  <button class="tab-btn" onclick="showTab('nongaap')">Non-GAAP</button>
+  <button class="tab-btn" onclick="showTab('valuation')">Valuation</button>
+  <button class="tab-btn" onclick="showTab('corporate')">Corporate</button>
+  <div style="margin-left:auto;display:flex;align-items:center;padding:0 8px;gap:8px;">
+    <span id="livePrice" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#42a2dc;">NZM.NZ —</span>
+    <span id="livePriceChange" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8a90a0;"></span>
+    <span id="livePriceStatus" style="font-size:10px;color:#8a90a0;">fetching…</span>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ══ OVERVIEW TAB ══ -->
+<div class="tab-pane active" id="tab-overview">
+
+<div class="summary-panel">
+  <div class="summary-body">
+    <div class="summary-headline">New Zealand Media and Entertainment — NZX: NZM</div>
+    <p>NZME is New Zealand's largest news publisher and audio broadcaster, operating the NZ Herald, BusinessDesk, Newstalk ZB, iHeartRadio and OneRoof. Revenue is split across digital and print advertising (~72%), subscriptions and circulation (~23%) and other services. The company has ~28,000 BusinessDesk subscribers and ~180,000 Herald Premium subscribers.</p>
+    <p>FY2025 was a cost-led recovery: Operating EBITDA rose 15% to $62.3m despite flat revenue ($345m, −1.3% YoY), driven by a first-half restructuring programme that reduced people costs 4% and print costs 9%. The closure of 14 community newspaper titles in late 2024 reduced revenue slightly on a reported basis but improved margin. Digital subscription revenue grew 3% to ~$78m, and digital audio revenue grew 10%. Net debt fell to $15.5m (0.25× EBITDA), well inside the target range of 0.5–1.0×, supporting a flat 9.0 cent dividend.</p>
+    <p>The key structural question is whether digital subscription and advertising growth can offset continued print decline. NZME trades at ~3.8× EV/EBITDA — cheap by global media standards. The single broker FY2026 consensus points to EBITDA of $66.5m (+6.7%) and NPAT of $23.7m (+81% on statutory FY2025), with flat dividends of 9.0 cents. The most recent dividend declared was 6.0 cents per share (payable 18 March 2026, record 6 March 2026).</p>
+  </div>
+  <div class="summary-tags">
+    <span class="summary-tag tag-grey">NZX Main Board</span>
+    <span class="summary-tag tag-grey">Dec year-end</span>
+    <span class="summary-tag tag-green">EBITDA +15% FY25</span>
+    <span class="summary-tag tag-amber">Revenue −1.3%</span>
+    <span class="summary-tag tag-green">Net debt 0.25×</span>
+    <span class="summary-tag tag-blue">Yield ~7.8%</span>
+    <span class="summary-tag tag-grey">EV/EBITDA ~3.8×</span>
+  </div>
+</div>
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Revenue 2025" data-tip="Core operating revenue from the company&apos;s principal business activities: advertising, subscriptions/circulation, services and other trading income. Excludes finance income and one-off asset disposal gains.">Revenue 2025</span> <span class="tt-icon" data-label="Revenue 2025" data-tip="Core operating revenue from the company&apos;s principal business activities: advertising, subscriptions/circulation, services and other trading income. Excludes finance income and one-off asset disposal gains.">?</span></div>
+      <div class="kpi-value">$341m</div>
+      <div class="kpi-delta down">▼ 1.3% YoY</div>
+      <div class="kpi-year">vs $346m in 2024</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Op. EBITDA 2025" data-tip="Non-GAAP Operating EBITDA as reported by management. Typically includes the impact of IFRS 16 lease accounting but excludes non-recurring items such as restructuring charges, impairments and disposal gains. The primary metric used in analyst coverage and management guidance.">Op. EBITDA 2025</span> <span class="tt-icon" data-label="Op. EBITDA 2025" data-tip="Non-GAAP Operating EBITDA as reported by management. Typically includes the impact of IFRS 16 lease accounting but excludes non-recurring items such as restructuring charges, impairments and disposal gains. The primary metric used in analyst coverage and management guidance.">?</span></div>
+      <div class="kpi-value">$62.3m</div>
+      <div class="kpi-delta up">▲ 15.0% YoY</div>
+      <div class="kpi-year">vs $54.2m in 2024</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="NPAT 2025" data-tip="Statutory Net Profit After Tax — the GAAP bottom line after all charges including depreciation, amortisation, finance costs, impairments and income tax.">NPAT 2025</span> <span class="tt-icon" data-label="NPAT 2025" data-tip="Statutory Net Profit After Tax — the GAAP bottom line after all charges including depreciation, amortisation, finance costs, impairments and income tax.">?</span></div>
+      <div class="kpi-value">$13.1m</div>
+      <div class="kpi-delta up">▲ loss reversal</div>
+      <div class="kpi-year">vs ($16.0m) in 2024</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="EPS (basic)" data-tip="Earnings per share: statutory NPAT attributable to ordinary shareholders divided by the weighted average shares on issue during the year. Reported in cents per share.">EPS (basic)</span> <span class="tt-icon" data-label="EPS (basic)" data-tip="Earnings per share: statutory NPAT attributable to ordinary shareholders divided by the weighted average shares on issue during the year. Reported in cents per share.">?</span></div>
+      <div class="kpi-value">6.96c</div>
+      <div class="kpi-delta up">▲ vs (8.59c) 2024</div>
+      <div class="kpi-year">Op. EPS: 9.4c</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Net debt" data-tip="Bank borrowings minus cash. Excludes IFRS 16 lease liabilities unless stated. A key absolute leverage measure.">Net debt</span> <span class="tt-icon" data-label="Net debt" data-tip="Bank borrowings minus cash. Excludes IFRS 16 lease liabilities unless stated. A key absolute leverage measure.">?</span></div>
+      <div class="kpi-value">$15.5m</div>
+      <div class="kpi-delta up">▼ $8.6m YoY</div>
+      <div class="kpi-year">0.25x EBITDA</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Total dividend" data-tip="Total dividends declared per ordinary share for the financial year (interim plus final). The payout ratio expresses dividends as a percentage of earnings or free cash flow.">Total dividend</span> <span class="tt-icon" data-label="Total dividend" data-tip="Total dividends declared per ordinary share for the financial year (interim plus final). The payout ratio expresses dividends as a percentage of earnings or free cash flow.">?</span></div>
+      <div class="kpi-value">9.0c</div>
+      <div class="kpi-delta dim">= flat YoY</div>
+      <div class="kpi-year">67% payout ratio</div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="Revenue vs Operating EBITDA ($m)" data-tip="Bars show management Operating Revenue; the line shows non-GAAP Operating EBITDA on the right axis. The gap between revenue and EBITDA represents operating costs. A widening gap indicates cost growth outpacing revenue.">Revenue vs Operating EBITDA ($m)</span></div>
+      <canvas id="chartRevEbitda"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="NPAT and Operating EBITDA margin (%)" data-tip="Operating EBITDA margin (Op. EBITDA / Op. Revenue) and statutory NPAT margin (NPAT / total revenue) plotted over time. Declining EBITDA margins indicate cost inflation outpacing revenue growth.">NPAT and Operating EBITDA margin (%)</span></div>
+      <canvas id="chartMargins"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="Net debt / (cash) ($m)" data-tip="Bank borrowings minus cash. Excludes IFRS 16 lease liabilities. A positive value is net debt; a negative value is a net cash position.">Net debt / (cash) ($m)</span></div>
+      <canvas id="chartDebt"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="Earnings per share (cents)" data-tip="Statutory basic EPS and non-GAAP Operating EPS plotted together. The gap between the two lines represents non-recurring items excluded from operating profit.">Earnings per share (cents)</span></div>
+      <canvas id="chartEPS"></canvas>
+    </div>
+  </div>
+
+  <div class="footnotes">
+    <strong>Data sources:</strong> Statutory figures (GAAP) extracted from NZME annual reports 2021–2025.
+    2024 statutory figures sourced from the 2025 annual report comparative columns — the file labelled "2024" was a duplicate of the 2023 report.
+    Non-GAAP Operating EBITDA and Operating Revenue are as reported by NZME management and exclude non-recurring items; they include the impact of NZ IFRS 16.
+    Net debt excludes lease liabilities (IFRS 16 right-of-use obligations).
+    2024 impairment of $24.7m comprised $24.0m intangible assets + $0.7m equity-accounted investments.
+  </div>
+</div>
+
+<!-- ══ P&L TAB ══ -->
+<div class="tab-pane" id="tab-pl">
+  <p class="section-title">Consolidated income statement <span class="badge badge-gaap">Statutory</span></p>
+  <p class="section-note">All figures $NZD '000. Year ended 31 December.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Line item</th>
+          <th>2020</th>
+          <th>2021</th>
+          <th>2022</th>
+          <th>2023</th>
+          <th>2024</th>
+          <th>2025</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-section"><td colspan="7">Revenue</td></tr>
+        <tr>
+          <td><span class="tt" data-label="Revenue" data-tip="Core operating revenue from the company&apos;s principal activities. Excludes finance income, disposal gains and other non-trading items.">Revenue</span></td>
+          <td>322,139</td><td>348,559</td><td>355,433</td><td>340,752</td><td>345,924</td><td>341,279</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Finance & other income" data-tip="Interest received on cash balances, gains on disposal of assets or investments, government grants and other non-operating income. Can be volatile year to year due to one-off asset sales.">Finance and other income</span></td>
+          <td>13,061</td><td>17,075</td><td>10,453</td><td>6,889</td><td>4,709</td><td>4,271</td>
+        </tr>
+        <tr class="row-subtotal">
+          <td class="bold"><span class="tt" data-label="Total revenue and other income" data-tip="The statutory top-line figure: operating revenue plus all finance and other income. Note: management &apos;Operating Revenue&apos; may differ due to the exclusion or reclassification of specific non-recurring items.">Total revenue and other income</span></td>
+          <td>335,200</td><td>365,634</td><td>365,886</td><td>347,641</td><td>350,633</td><td>345,550</td>
+        </tr>
+
+        <tr class="row-section"><td colspan="7">Operating expenses</td></tr>
+        <tr>
+          <td class="indent"><span class="tt" data-label="People costs" data-tip="Salaries, wages, contractor fees, share-based payments and other employee-related costs. Typically the largest single operating cost for service and media businesses.">People costs</span></td>
+          <td class="dim">—</td><td class="dim">—</td><td class="dim">—</td><td class="neg">(146,648)</td><td class="neg">(149,777)</td><td class="neg">(145,395)</td>
+        </tr>
+        <tr>
+          <td class="indent"><span class="tt" data-label="Print and distribution" data-tip="Costs of physical production and distribution: paper, ink, printing and physical delivery. Specific to print media companies; declining structurally as digital consumption replaces print.">Print and distribution</span></td>
+          <td class="dim">—</td><td class="dim">—</td><td class="dim">—</td><td class="neg">(50,755)</td><td class="neg">(51,826)</td><td class="neg">(47,160)</td>
+        </tr>
+        <tr>
+          <td class="indent"><span class="tt" data-label="Selling, marketing & agency" data-tip="Advertising agency commissions paid to media buying agencies, plus the company&apos;s own marketing, promotional and selling expenses.">Selling, marketing & agency</span></td>
+          <td class="dim">—</td><td class="dim">—</td><td class="dim">—</td><td class="neg">(36,055)</td><td class="neg">(39,328)</td><td class="neg">(40,175)</td>
+        </tr>
+        <tr>
+          <td class="indent"><span class="tt" data-label="Content" data-tip="Costs for sourcing, licensing and producing content — editorial, audio, video and digital. Includes wire service fees, freelance contributors, syndication licences and production costs.">Content</span></td>
+          <td class="dim">—</td><td class="dim">—</td><td class="dim">—</td><td class="neg">(19,667)</td><td class="neg">(21,250)</td><td class="neg">(20,434)</td>
+        </tr>
+        <tr>
+          <td class="indent"><span class="tt" data-label="Other opex" data-tip="Residual operating costs not separately categorised: property and occupancy costs, IT and communications, third-party digital fulfilment, and other miscellaneous operating expenses.">Other opex</span></td>
+          <td class="dim">—</td><td class="dim">—</td><td class="dim">—</td><td class="neg">(39,871)</td><td class="neg">(38,325)</td><td class="neg">(36,124)</td>
+        </tr>
+        <tr class="row-subtotal">
+          <td class="bold"><span class="tt" data-label="Total opex (before D&A)" data-tip="All operating costs before depreciation and amortisation. The primary driver of EBITDA. Subtract from total revenue to derive EBITDA.">Total opex (before D&A)</span></td>
+          <td class="neg">(275,301)</td><td class="neg">(286,854)</td><td class="neg">(301,435)</td><td class="neg">(292,996)</td><td class="neg">(300,506)</td><td class="neg">(289,288)</td>
+        </tr>
+
+        <tr class="row-section"><td colspan="7">Earnings</td></tr>
+        <tr class="row-subtotal">
+          <td class="bold"><span class="tt" data-label="EBITDA (calc.)" data-tip="Earnings Before Interest, Tax, Depreciation and Amortisation — calculated as total revenue less total opex before D&A. A proxy for operating cash generation before capital expenditure. May differ from management&apos;s non-GAAP Operating EBITDA — see the Non-GAAP tab.">EBITDA (calculated)</span></td>
+          <td>59,899</td><td>78,780</td><td>64,451</td><td>54,645</td><td>50,127</td><td>56,262</td>
+        </tr>
+        <tr>
+          <td class="indent"><span class="tt" data-label="Depreciation & amortisation" data-tip="Depreciation of PP&E and right-of-use assets (IFRS 16), plus amortisation of intangibles. Rising intensity (7.2%→9.1% of revenue) reflects digital investment, lease depreciation, and revenue decline.">Depreciation & amortisation</span></td>
+          <td class="neg">(28,548)</td><td class="neg">(26,319)</td><td class="neg">(27,391)</td><td class="neg">(28,623)</td><td class="neg">(29,886)</td><td class="neg">(30,959)</td>
+        </tr>
+        <tr class="row-subtotal">
+          <td class="bold"><span class="tt" data-label="EBIT" data-tip="Earnings Before Interest and Tax. Operating profit after accounting for depreciation and amortisation. Represents the profit generated by operations before financing costs and taxes.">EBIT</span></td>
+          <td>31,351</td><td>52,461</td><td>37,060</td><td>26,022</td><td>20,241</td><td>25,303</td>
+        </tr>
+        <tr>
+          <td class="indent"><span class="tt" data-label="Finance costs" data-tip="Interest expense on bank borrowings and, under IFRS 16, interest on lease liabilities. Directly impacted by the level of debt and prevailing interest rates.">Finance costs</span></td>
+          <td class="neg">(8,253)</td><td class="neg">(7,282)</td><td class="neg">(5,665)</td><td class="neg">(7,656)</td><td class="neg">(7,800)</td><td class="neg">(6,664)</td>
+        </tr>
+        <tr>
+          <td class="indent"><span class="tt" data-label="Share of JV/associates losses" data-tip="The investing company&apos;s proportionate share of profits or losses from equity-accounted investments: joint ventures and associates where the company holds significant influence but not control.">Share of JV/associates losses</span></td>
+          <td class="neg">(417)</td><td class="neg">(450)</td><td class="neg">(156)</td><td class="neg">(588)</td><td class="neg">(210)</td><td>—</td>
+        </tr>
+        <tr>
+          <td class="indent"><span class="tt" data-label="Impairment of assets" data-tip="A write-down of an asset (intangibles, goodwill, PP&amp;E, investments) to its recoverable amount when carrying value exceeds what can be recovered through use or sale. A non-cash charge — it reduces NPAT but does not affect operating cash flow.">Impairment of assets</span></td>
+          <td class="neg">(3,470)</td><td class="neg">(2,477)</td><td>—</td><td>—</td><td class="neg">(24,733)</td><td>—</td>
+        </tr>
+        <tr class="row-subtotal">
+          <td class="bold"><span class="tt" data-label="Profit / (loss) before tax" data-tip="EBIT less finance costs, JV losses and impairments. The 2024 pre-tax loss was entirely impairment-driven — underlying business was profitable.">Profit / (loss) before tax</span></td>
+          <td>19,211</td><td>42,252</td><td>31,239</td><td>17,778</td><td class="neg">(12,502)</td><td>18,639</td>
+        </tr>
+        <tr>
+          <td class="indent"><span class="tt" data-label="Income tax expense" data-tip="NZ corporate tax at 28% on taxable income, adjusted for deferred tax movements. Effective rate varies due to non-deductible impairments and timing differences on deferred tax assets.">Income tax expense</span></td>
+          <td class="neg">(4,729)</td><td class="neg">(7,818)</td><td class="neg">(8,559)</td><td class="neg">(5,578)</td><td class="neg">(3,538)</td><td class="neg">(5,552)</td>
+        </tr>
+        <tr class="row-total">
+          <td><span class="tt" data-label="Net profit / (loss) after tax" data-tip="Statutory GAAP bottom line. 2024 loss was non-cash impairment-driven. Non-GAAP Operating NPAT was positive in all years. See Non-GAAP tab.">Net profit / (loss) after tax</span></td>
+          <td>14,482</td><td>34,434</td><td>22,680</td><td>12,200</td><td class="neg">(16,040)</td><td>13,087</td>
+        </tr>
+        <tr>
+          <td class="indent">— attributable to owners</td>
+          <td>14,787</td><td>34,645</td><td>23,383</td><td>12,789</td><td class="neg">(16,040)</td><td>13,087</td>
+        </tr>
+        <tr>
+          <td class="indent">— non-controlling interests</td>
+          <td class="neg">(305)</td><td class="neg">(211)</td><td class="neg">(703)</td><td class="neg">(589)</td><td>—</td><td>—</td>
+        </tr>
+
+        <tr class="row-section"><td colspan="7">Per share</td></tr>
+        <tr>
+          <td><span class="tt" data-label="Basic EPS (cents)" data-tip="NPAT to owners divided by weighted average shares on issue. Cents per share. See Non-GAAP tab for Operating EPS which strips out non-recurring items.">Basic EPS (cents)</span></td>
+          <td>7.48</td><td>17.54</td><td>12.09</td><td>6.95</td><td class="neg">(8.59)</td><td>6.96</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Diluted EPS (cents)" data-tip="EPS adjusted for the dilutive effect of potential shares: options, performance rights and convertible instruments outstanding. Equal to or lower than basic EPS.">Diluted EPS (cents)</span></td>
+          <td>7.29</td><td>16.93</td><td>11.69</td><td>6.69</td><td class="neg">(8.50)</td><td>6.90</td>
+        </tr>
+        <tr>
+          <td colspan="7" class="source-note">Note: 2021–2022 opex breakdown not disclosed by line item in those annual reports; shown as total only. 2024 figures from 2025 annual report comparative columns.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ BALANCE SHEET TAB ══ -->
+<div class="tab-pane" id="tab-balance">
+  <p class="section-title">Consolidated balance sheet <span class="badge badge-gaap">Statutory</span></p>
+  <p class="section-note">All figures $NZD '000. As at 31 December.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Line item</th>
+          <th>2020</th>
+          <th>2021</th>
+          <th>2022</th>
+          <th>2023</th>
+          <th>2024</th>
+          <th>2025</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-section"><td colspan="7">Current assets</td></tr>
+        <tr><td class="indent"><span class="tt" data-label="Cash and cash equivalents" data-tip="Cash at bank and short-term liquid deposits. Available liquidity may exceed the cash balance if the company has undrawn revolving credit facilities.">Cash and cash equivalents</span></td><td>11,560</td><td>13,538</td><td>5,670</td><td>5,524</td><td>4,641</td><td>8,804</td></tr>
+        <tr><td class="indent"><span class="tt" data-label="Trade and other receivables" data-tip="Amounts owed by advertising clients and other customers, net of provision for doubtful debts. Declining from 2022 reflects lower revenue and tighter debtor management.">Trade and other receivables</span></td><td>43,882</td><td>45,176</td><td>48,751</td><td>45,057</td><td>41,485</td><td>40,060</td></tr>
+        <tr><td class="indent"><span class="tt" data-label="Inventories" data-tip="Raw materials, work in progress and finished goods held for sale or use in production. For media companies, primarily paper stock for print publications.">Inventories</span></td><td>1,480</td><td>1,909</td><td>5,644</td><td>5,084</td><td>2,496</td><td>1,627</td></tr>
+        <tr><td class="indent">Other current assets</td><td>2,165</td><td>25</td><td>279</td><td>—</td><td>2,524</td><td>28</td></tr>
+        <tr class="row-subtotal"><td class="bold"><span class="tt" data-label="Total current assets" data-tip="Assets expected to convert to cash within 12 months: cash, receivables, inventories. Declining trend reflects revenue reduction and inventory management.">Total current assets</span></td><td>59,087</td><td>60,648</td><td>60,344</td><td>55,665</td><td>51,146</td><td>50,519</td></tr>
+
+        <tr class="row-section"><td colspan="7">Non-current assets</td></tr>
+        <tr><td class="indent"><span class="tt" data-label="Intangible assets" data-tip="Non-physical assets with economic value: goodwill, brand values, customer lists, licences and capitalised software. Subject to amortisation and annual impairment testing.">Intangible assets</span></td><td>142,773</td><td>138,195</td><td>141,487</td><td>142,445</td><td>115,841</td><td>110,235</td></tr>
+        <tr><td class="indent"><span class="tt" data-label="Property, plant & equipment" data-tip="broadcast/transmission equipment, office fit-outs, vehicles and leasehold improvements. Depreciated over their useful economic lives.">Property, plant & equipment</span></td><td>34,978</td><td>26,976</td><td>23,095</td><td>20,311</td><td>18,218</td><td>15,711</td></tr>
+        <tr><td class="indent"><span class="tt" data-label="Right-of-use assets (IFRS 16)" data-tip="Property and equipment leases capitalised under NZ IFRS 16. Mainly office premises, transmitter sites and printing facilities. Mirrors the lease liability on the other side of the balance sheet. Declining as leases expire or are renegotiated.">Right-of-use assets (IFRS 16)</span></td><td>85,382</td><td>67,513</td><td>63,657</td><td>58,233</td><td>54,710</td><td>49,005</td></tr>
+        <tr><td class="indent">Other non-current assets</td><td>10,189</td><td>19,056</td><td>17,654</td><td>13,745</td><td>14,650</td><td>13,373</td></tr>
+        <tr class="row-subtotal"><td class="bold"><span class="tt" data-label="Non-current assets" data-tip="Assets held for longer than 12 months: intangibles, PP&E, right-of-use assets, equity investments and deferred tax.">Total non-current assets</span></td><td>273,322</td><td>251,720</td><td>245,893</td><td>234,734</td><td>203,419</td><td>188,324</td></tr>
+
+        <tr class="row-total"><td><span class="tt" data-label="Total assets" data-tip="The total of all current and non-current assets on the balance sheet.">Total assets</span></td><td>332,409</td><td>312,368</td><td>306,237</td><td>290,399</td><td>254,565</td><td>238,843</td></tr>
+
+        <tr class="row-section"><td colspan="7">Current liabilities</td></tr>
+        <tr><td class="indent">Trade and other payables</td><td>43,838</td><td>53,780</td><td>52,477</td><td>48,840</td><td>44,375</td><td>43,815</td></tr>
+        <tr><td class="indent">Current lease liabilities</td><td>10,931</td><td>11,340</td><td>11,596</td><td>12,572</td><td>13,690</td><td>14,515</td></tr>
+        <tr><td class="indent">Other current liabilities</td><td>8,929</td><td>4,689</td><td>1,674</td><td>269</td><td>—</td><td>1,178</td></tr>
+        <tr class="row-subtotal"><td class="bold">Total current liabilities</td><td>63,698</td><td>69,809</td><td>65,747</td><td>61,681</td><td>58,065</td><td>59,508</td></tr>
+
+        <tr class="row-section"><td colspan="7">Non-current liabilities</td></tr>
+        <tr><td class="indent"><span class="tt" data-label="Interest-bearing borrowings" data-tip="Bank loans and other interest-bearing debt. Often structured as a revolving credit facility allowing drawdown and repayment within a committed limit. Excludes IFRS 16 lease liabilities unless stated.">Interest-bearing borrowings</span></td><td>45,379</td><td>—</td><td>23,134</td><td>23,490</td><td>28,731</td><td>24,311</td></tr>
+        <tr><td class="indent"><span class="tt" data-label="Non-current lease liabilities" data-tip="Long-term IFRS 16 lease obligations: future minimum lease payments beyond 12 months, discounted to present value. Mirror of right-of-use assets. Declining as leases run down.">Non-current lease liabilities</span></td><td>96,521</td><td>85,445</td><td>79,578</td><td>72,105</td><td>66,146</td><td>57,164</td></tr>
+        <tr><td class="indent">Other non-current liabilities</td><td>310</td><td>—</td><td>—</td><td>676</td><td>360</td><td>—</td></tr>
+        <tr class="row-subtotal"><td class="bold">Total non-current liabilities</td><td>142,210</td><td>85,445</td><td>102,712</td><td>96,271</td><td>95,237</td><td>81,475</td></tr>
+
+        <tr class="row-total"><td><span class="tt" data-label="Total liabilities" data-tip="All financial obligations: borrowings, lease liabilities, trade payables, provisions, deferred tax and other payables.">Total liabilities</span></td><td>205,908</td><td>155,254</td><td>168,459</td><td>157,952</td><td>153,302</td><td>140,983</td></tr>
+
+        <tr class="row-section"><td colspan="7">Equity</td></tr>
+        <tr><td class="indent">Share capital</td><td>361,758</td><td>361,758</td><td>344,473</td><td>345,365</td><td>346,698</td><td>346,770</td></tr>
+        <tr><td class="indent">Reserves</td><td>3,485</td><td>4,920</td><td>5,282</td><td>5,416</td><td>2,240</td><td>2,405</td></tr>
+        <tr><td class="indent"><span class="tt" data-label="Retained earnings (accumulated losses)" data-tip="Cumulative net profits retained in the business after dividends. A large negative balance (accumulated losses) is common in companies that have undergone historical restructurings or write-downs — it does not necessarily indicate current financial distress.">Retained earnings (accumulated losses)</span></td><td class="neg">(238,867)</td><td class="neg">(209,478)</td><td class="neg">(211,188)</td><td class="neg">(218,334)</td><td class="neg">(247,675)</td><td class="neg">(251,315)</td></tr>
+        <tr class="row-total"><td><span class="tt" data-label="Total equity (net assets)" data-tip="Shareholders funds: share capital + reserves + retained earnings. Down from $157m (2021 peak) to $98m (2025) as accumulated losses grew faster than profits — mainly the 2024 impairment. ~52c book value per share.">Total equity (net assets)</span></td><td>126,501</td><td>157,114</td><td>137,778</td><td>132,447</td><td>101,263</td><td>97,860</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ RATIOS TAB ══ -->
+<div class="tab-pane" id="tab-ratios">
+  <p class="section-title">Key financial ratios</p>
+  <p class="section-note">Derived from statutory (GAAP) figures. Net debt excludes IFRS 16 lease liabilities.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>2020</th>
+          <th>2021</th>
+          <th>2022</th>
+          <th>2023</th>
+          <th>2024</th>
+          <th>2025</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-section"><td colspan="7">Profitability</td></tr>
+        <tr>
+          <td><span class="tt" data-label="EBITDA margin" data-tip="EBITDA as a percentage of total revenue. Measures how efficiently revenue converts to pre-depreciation earnings. A useful cross-company comparator as it removes the effect of capital structure and asset base differences.">EBITDA margin</span></td>
+          <td class="ratio-mid">17.9%</td><td class="ratio-good">21.5%</td><td class="ratio-mid">17.6%</td><td class="ratio-bad">15.7%</td><td class="ratio-bad">14.3%</td><td class="ratio-mid">16.3%</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="EBIT margin" data-tip="EBIT (operating profit) as a percentage of revenue. Reflects earnings after accounting for the cost of maintaining the asset base through depreciation and amortisation.">EBIT margin</span></td>
+          <td>9.4%</td><td>14.3%</td><td>10.1%</td><td>7.5%</td><td>5.8%</td><td>7.3%</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="NPAT margin" data-tip="Net profit after tax as a percentage of total revenue. The bottom-line profitability measure after all charges. Can be distorted by non-recurring items such as impairments or disposal gains.">NPAT margin</span></td>
+          <td>4.3%</td><td>9.4%</td><td>6.2%</td><td>3.5%</td><td class="neg">n/m</td><td>3.8%</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Return on equity (ROE)" data-tip="Return on Equity: NPAT divided by average shareholders&apos; equity (opening + closing / 2). Measures the return generated on the book value of shareholders&apos; funds. Affected by financial leverage — higher debt can inflate ROE.">Return on equity (ROE)</span></td>
+          <td>12.5%</td><td>24.5%</td><td>15.1%</td><td>9.0%</td><td class="neg">n/m</td><td>13.2%</td>
+        </tr>
+
+        <tr class="row-section"><td colspan="7">Revenue</td></tr>
+        <tr>
+          <td><span class="tt" data-label="Revenue growth YoY" data-tip="Year-on-year percentage change in core operating revenue, excluding finance and other non-operating income. Shows underlying trading momentum.">Revenue growth YoY</span></td>
+          <td class="dim">—</td><td class="ratio-good">+8.2%</td><td class="ratio-good">+2.0%</td><td class="ratio-bad">−4.1%</td><td class="ratio-good">+1.5%</td><td class="ratio-bad">−1.3%</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Other income %" data-tip="Finance and other income as a share of total statutory revenue. High ratios may indicate reliance on one-off gains rather than operating performance.">Other income %</span></td>
+          <td>3.9%</td><td>4.7%</td><td>2.9%</td><td>2.0%</td><td>1.3%</td><td>1.2%</td>
+        </tr>
+
+        <tr class="row-section"><td colspan="7">Cost structure</td></tr>
+        <tr>
+          <td><span class="tt" data-label="Opex ratio (excl. D&A)" data-tip="Total operating costs before D&A as a % of revenue. Lower = more efficient. Rose from 78.5% (2021) to 85.7% (2024) as cost inflation outpaced revenue. Improved to 83.7% in 2025 after cost reset.">Opex ratio (excl. D&A)</span></td>
+          <td>82.1%</td><td>78.5%</td><td>82.4%</td><td>84.3%</td><td>85.7%</td><td>83.7%</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="D&A intensity" data-tip="Depreciation and amortisation as a percentage of revenue. Reflects the capital intensity of the business model. Rising D&A intensity can indicate heavy asset investment or accelerating write-downs of existing assets.">D&A intensity</span></td>
+          <td>8.5%</td><td>7.2%</td><td>7.5%</td><td>8.2%</td><td>8.5%</td><td>9.1%</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Finance costs / revenue" data-tip="Interest expense as % of revenue. Low at 1.5-2.5%, reflecting conservative balance sheet. Includes IFRS 16 lease interest (~$4m/yr) and bank debt interest.">Finance costs / revenue</span></td>
+          <td>2.5%</td><td>2.0%</td><td>1.5%</td><td>2.2%</td><td>2.2%</td><td>1.9%</td>
+        </tr>
+
+        <tr class="row-section"><td colspan="7">Balance sheet and leverage</td></tr>
+        <tr>
+          <td><span class="tt" data-label="Net debt / (cash)" data-tip="Bank borrowings minus cash ($000). Excludes IFRS 16 lease liabilities unless stated. A key absolute leverage measure.">Net debt / (cash)</span></td>
+          <td>33,819</td><td class="ratio-good">(13,538)</td><td>17,464</td><td>17,966</td><td>24,090</td><td class="ratio-good">15,507</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Net debt / EBITDA" data-tip="A key leverage ratio: the number of years of EBITDA needed to repay net debt. A standard measure used by lenders and analysts. Under 1.0× is conservative; most investment-grade companies target 1.5–3.0×.">Net debt / EBITDA</span></td>
+          <td class="ratio-mid">0.56×</td><td class="ratio-good">net cash</td><td class="ratio-good">0.27×</td><td class="ratio-good">0.33×</td><td class="ratio-mid">0.48×</td><td class="ratio-good">0.28×</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Debt / equity" data-tip="Bank borrowings divided by shareholders&apos; equity. A traditional solvency ratio. Can be misleading when equity has been eroded by historical accumulated losses — compare with net debt / EBITDA for a more operational view.">Debt / equity</span></td>
+          <td>35.9%</td><td>—</td><td>16.8%</td><td>17.7%</td><td>28.4%</td><td>24.8%</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Current ratio" data-tip="Current assets divided by current liabilities. A ratio below 1.0× means more short-term obligations than liquid assets — normal for companies with strong predictable cash flows and available credit facilities.">Current ratio</span></td>
+          <td>0.93×</td><td>0.87×</td><td>0.92×</td><td>0.90×</td><td>0.88×</td><td>0.85×</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Liabilities / assets" data-tip="Total liabilities as a percentage of total assets. A broad balance sheet leverage indicator. Note that IFRS 16 lease capitalisation adds to both sides of the balance sheet, inflating this ratio for companies with large lease portfolios.">Liabilities / assets</span></td>
+          <td>62.0%</td><td>49.7%</td><td>55.0%</td><td>54.4%</td><td>60.2%</td><td>59.0%</td>
+        </tr>
+
+        <tr class="row-section"><td colspan="7">Per share (cents unless noted)</td></tr>
+        <tr>
+          <td><span class="tt" data-label="Basic EPS" data-tip="Earnings per share: NPAT attributable to ordinary shareholders divided by the weighted average number of shares on issue. Cents per share.">Basic EPS</span></td>
+          <td>7.48c</td><td>17.54c</td><td>12.09c</td><td>6.95c</td><td class="neg">(8.59c)</td><td>6.96c</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="NAV per share (approx.)" data-tip="Total equity / approximate shares on issue (derived from NPAT / EPS). Cents per share. Declining from 79.6c (2021) to 52.4c (2025) as impairments and dividends erode equity. Compare to share prices on the Valuation tab.">NAV per share (approx.)</span></td>
+          <td>64.0c</td><td>79.6c</td><td>71.3c</td><td>70.8c</td><td>54.2c</td><td>52.4c</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footnotes">
+    <strong>NAV per share</strong> estimated using shares on issue implied by EPS (owners' NPAT ÷ basic EPS).
+    <strong>ROE</strong> uses average of opening and closing equity.
+    <strong>Current ratio</strong> excludes assets/liabilities held for sale (2020).
+    All ratios derived from statutory GAAP figures; may differ from company-reported non-GAAP metrics.
+  </div>
+</div>
+
+<!-- ══ NON-GAAP TAB ══ -->
+<div class="tab-pane" id="tab-nongaap">
+  <p class="section-title">Operating metrics (Non-GAAP) <span class="badge badge-op">Management reported</span></p>
+  <p class="section-note">As reported by NZME management. Includes IFRS 16 impact; excludes non-recurring items. Figures in $NZDm unless noted.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>2020</th>
+          <th>2021</th>
+          <th>2022</th>
+          <th>2023</th>
+          <th>2024</th>
+          <th>2025</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="tt" data-label="Operating revenue" data-tip="Management non-GAAP view of revenue. May differ from statutory revenue due to reclassification of specific items. Used in management commentary and analyst models.">Operating revenue</span></td>
+          <td>331.2</td><td>349.2</td><td>364.6</td><td>346.6</td><td>350.2</td><td>345.1</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Operating EBITDA" data-tip="Primary non-GAAP profitability metric. Includes IFRS 16 lease impact, but excludes non-recurring items: restructuring charges, impairments, one-off gains/losses. The figure used in analyst coverage and management guidance.">Operating EBITDA</span></td>
+          <td>66.0</td><td>66.0</td><td>64.7</td><td>56.2</td><td>54.2</td><td>62.3</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Operating EBITDA margin" data-tip="Operating EBITDA / Operating Revenue. Management preferred margin metric. Recovery from 15.5% (2024) to 18.1% (2025) driven by cost reduction, not revenue growth.">Operating EBITDA margin</span></td>
+          <td>19.9%</td><td>18.9%</td><td>17.7%</td><td>16.2%</td><td>15.5%</td><td>18.1%</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Operating NPAT" data-tip="Net profit after tax on a non-GAAP basis — strips out non-recurring costs and their tax effects. More representative of underlying earnings power than statutory NPAT.">Operating NPAT</span></td>
+          <td class="dim">—</td><td class="dim">—</td><td class="dim">—</td><td class="dim">—</td><td class="dim">~12.1</td><td>17.7</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Operating EPS" data-tip="Non-GAAP EPS based on Operating NPAT. The 2025 figure (9.4c) vs statutory basic EPS (6.96c): the 2.4c gap represents non-recurring restructuring costs excluded from operating profit.">Operating EPS</span></td>
+          <td class="dim">—</td><td>11.9c</td><td>12.1c</td><td>7.7c</td><td>6.5c</td><td>9.4c</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Total dividend" data-tip="Total dividends declared per ordinary share for the financial year (interim plus final). The payout ratio expresses dividends as a percentage of earnings or free cash flow.">Total dividend</span></td>
+          <td class="dim">—</td><td>5.0c</td><td>6.0c</td><td>6.0c</td><td>9.0c</td><td>9.0c</td>
+        </tr>
+        <tr>
+          <td colspan="7" class="source-note">
+            Operating EBITDA is a non-GAAP measure defined by NZME. The main reconciling items vs statutory EBITDA are: exclusion of specific non-recurring items, and inclusion (not exclusion) of IFRS 16 lease-related EBITDA uplift. Full reconciliation available in NZME Results Presentations.
+            2024 Operating NPAT estimated from 6.5c Operating EPS and ~187m weighted average shares.
+          </td>
+        </tr>
+
+        <tr class="row-section"><td colspan="7">Statutory vs Operating EBITDA reconciliation ($m)</td></tr>
+        <tr>
+          <td><span class="tt" data-label="Statutory EBITDA (calc.)" data-tip="EBITDA derived from the statutory P&L: total revenue and other income minus total opex before D&A. Includes all items — disposal gains, one-off costs, etc. Compare to management Operating EBITDA below.">Statutory EBITDA (calc.)</span></td>
+          <td>59.9</td><td>78.8</td><td>64.5</td><td>54.6</td><td>50.1</td><td>56.3</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Management Operating EBITDA" data-tip="Non-GAAP EBITDA as reported by management. The full reconciliation to statutory profit is typically available in the company&apos;s full year results presentation.">Management Operating EBITDA</span></td>
+          <td>66.0</td><td>66.0</td><td>64.7</td><td>56.2</td><td>54.2</td><td>62.3</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Implied reconciling adjustment" data-tip="The difference between statutory EBITDA (as calculated from the P&L) and management&apos;s non-GAAP Operating EBITDA. Common adjustments include: adding back restructuring charges, removing disposal gains, and excluding one-off costs. Full reconciliation is typically available in the company&apos;s results presentation.">Implied reconciling adjustment</span></td>
+          <td class="ratio-mid">+6.1</td><td class="ratio-bad">−12.8</td><td class="ratio-mid">+0.2</td><td class="ratio-mid">+1.6</td><td class="ratio-mid">+4.1</td><td class="ratio-mid">+6.0</td>
+        </tr>
+        <tr>
+          <td colspan="7" class="source-note">
+            2021 statutory EBITDA of $78.8m was significantly elevated due to $17.1m "Finance and other income" which included the gain on sale of GrabOne ($15m+). 
+            Management Operating EBITDA strips this out. The reconciliation details are in NZME's full year results presentations.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footnotes">
+    <strong>Key reconciling items (2021):</strong> The $12.8m gap is mainly the GrabOne disposal gain (~$15m included in statutory "Finance and other income" but excluded from Operating EBITDA) partially offset by other adjustments.
+    <br><strong>Key reconciling items (2024–2025):</strong> Adjustments relate to restructuring costs, community newspaper closure costs, and other non-recurring items excluded from Operating EBITDA. See NZME Full Year 2025 Results Presentation pages 41–42 for full reconciliation.
+  </div>
+</div>
+
+<!-- ══ VALUATION TAB ══ -->
+<div class="tab-pane" id="tab-valuation">
+  <p class="section-title">Market valuation — NZM.NZ</p>
+  <p class="section-note">Year-end share price (December close, real/unadjusted). Shares on issue derived from NPAT-to-owners ÷ basic EPS. Net debt excludes IFRS 16 lease liabilities.</p>
+
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
+    <div class="kpi-card" id="vCard-price">
+      <div class="kpi-label"><span class="tt" data-label="Current price" data-tip="Live share price from Yahoo Finance (15-minute delay), fetched via CORS proxy when the file is opened in a browser.">Current price</span> <span class="tt-icon" data-label="Current price" data-tip="Live share price from Yahoo Finance (15-minute delay), fetched via CORS proxy when the file is opened in a browser.">?</span></div>
+      <div class="kpi-value" id="vLive-price">—</div>
+      <div class="kpi-delta" id="vLive-change"></div>
+      <div class="kpi-year" id="vLive-time">loading…</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Market cap (current)" data-tip="Current share price multiplied by shares on issue. Represents the total market value of all ordinary shares — what the market believes the equity is worth.">Market cap (current)</span> <span class="tt-icon" data-label="Market cap (current)" data-tip="Current share price multiplied by shares on issue. Represents the total market value of all ordinary shares — what the market believes the equity is worth.">?</span></div>
+      <div class="kpi-value" id="vLive-mcap">—</div>
+      <div class="kpi-year">~188m shares on issue</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="EV/Op.EBITDA (current)" data-tip="Enterprise value (market cap plus net debt) divided by Operating EBITDA. The primary valuation multiple for comparing companies regardless of capital structure. Widely used in media and industrial sectors.">EV/Op.EBITDA (current)</span> <span class="tt-icon" data-label="EV/Op.EBITDA (current)" data-tip="Enterprise value (market cap plus net debt) divided by Operating EBITDA. The primary valuation multiple for comparing companies regardless of capital structure. Widely used in media and industrial sectors.">?</span></div>
+      <div class="kpi-value" id="vLive-ev">—</div>
+      <div class="kpi-year">Op. EBITDA $62.3m (2025)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Trailing P/E (current)" data-tip="Current market cap / 2025 statutory NPAT ($13.1m). Appears elevated because statutory NPAT is depressed by non-cash D&A. Operating P/E (using Op. NPAT $17.7m) would be materially lower.">Trailing P/E (current)</span> <span class="tt-icon" data-label="Trailing P/E (current)" data-tip="Current market cap / 2025 statutory NPAT ($13.1m). Appears elevated because statutory NPAT is depressed by non-cash D&A. Operating P/E (using Op. NPAT $17.7m) would be materially lower.">?</span></div>
+      <div class="kpi-value" id="vLive-pe">—</div>
+      <div class="kpi-year">NPAT $13.1m (2025)</div>
+    </div>
+  </div>
+
+  <div class="chart-grid" style="margin-bottom:24px;">
+    <div class="chart-box" style="grid-column:1/-1;">
+      <div class="chart-title">Share price — year-end close (NZ$)</div>
+      <canvas id="chartPrice" style="max-height:160px;"></canvas>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>2020</th>
+          <th>2021</th>
+          <th>2022</th>
+          <th>2023</th>
+          <th>2024</th>
+          <th>2025</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-section"><td colspan="7">Share price and market capitalisation</td></tr>
+        <tr>
+          <td><span class="tt" data-label="Year-end close (NZ$)" data-tip="Real (unadjusted for dividends) closing share price at the end of December each year. Source: Yahoo Finance.">Year-end close (NZ$)</span></td>
+          <td>$0.70</td><td>$1.43</td><td>$1.15</td><td>$1.08</td><td>$1.06</td><td>$1.16</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Shares on issue" data-tip="Approximate weighted average ordinary shares on issue, derived from NPAT-to-owners divided by basic EPS. May change due to share buybacks, new issues or the vesting of performance rights.">Shares on issue</span></td>
+          <td>197.7</td><td>197.5</td><td>193.4</td><td>184.0</td><td>186.7</td><td>188.0</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Market capitalisation" data-tip="Year-end price x shares on issue. Total equity value. Down from 2021 peak ($282m) despite stronger 2025 earnings, reflecting re-rating of traditional media.">Market capitalisation</span></td>
+          <td>138.4</td><td>282.4</td><td>222.4</td><td>198.7</td><td>197.9</td><td>218.1</td>
+        </tr>
+        <tr>
+          <td>Net debt / (cash) ($m)</td>
+          <td>33.8</td><td class="ratio-good">(13.5)</td><td>17.5</td><td>18.0</td><td>24.1</td><td class="ratio-good">15.5</td>
+        </tr>
+        <tr class="row-subtotal">
+          <td class="bold"><span class="tt" data-label="Enterprise value" data-tip="Market capitalisation plus net debt (bank borrowings minus cash). Represents the theoretical total acquisition cost of the business — equity holders plus debt holders. Used as the numerator in EV/EBITDA and EV/Revenue multiples. Excludes IFRS 16 lease liabilities unless stated.">Enterprise value (EV)</span></td>
+          <td>172.2</td><td>268.9</td><td>239.9</td><td>216.7</td><td>222.0</td><td>233.6</td>
+        </tr>
+
+        <tr class="row-section"><td colspan="7">Market-based multiples</td></tr>
+        <tr>
+          <td><span class="tt" data-label="P/E ratio" data-tip="Price-to-earnings ratio: market cap divided by net profit after tax. A common valuation multiple. Can be elevated when earnings are temporarily depressed by non-cash charges such as impairments or high D&A.">P/E ratio</span></td>
+          <td>9.5×</td><td>8.2×</td><td>9.8×</td><td>16.3×</td><td class="dim">n/m</td><td>16.7×</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="EV / statutory EBITDA" data-tip="Enterprise value divided by calculated statutory EBITDA. May be distorted by one-off items included in statutory revenue or costs. Use EV/Operating EBITDA (non-GAAP) for a more like-for-like comparison across years.">EV / statutory EBITDA</span></td>
+          <td class="ratio-good">2.9×</td><td class="ratio-good">3.4×</td><td class="ratio-good">3.7×</td><td class="ratio-mid">4.0×</td><td class="ratio-mid">4.4×</td><td class="ratio-mid">4.2×</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="EV / Operating EBITDA" data-tip="Enterprise value divided by management&apos;s non-GAAP Operating EBITDA. The most comparable multiple year to year as it strips out non-recurring items. The preferred EV multiple for cross-company analysis.">EV / Operating EBITDA</span></td>
+          <td class="ratio-good">2.6×</td><td class="ratio-mid">4.1×</td><td class="ratio-good">3.7×</td><td class="ratio-good">3.9×</td><td class="ratio-mid">4.1×</td><td class="ratio-good">3.8×</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Price / book value" data-tip="Market cap / shareholders equity. Rising P/B with shrinking book value signals the market values cash flows, not assets — appropriate for a media brand business where value lies in audiences, not physical assets.">Price / book value</span></td>
+          <td>1.09×</td><td>1.80×</td><td>1.61×</td><td>1.50×</td><td>1.95×</td><td>2.23×</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Dividend yield" data-tip="Annual dividends per share divided by the share price. Expressed as a percentage. A high yield may indicate either a generous capital return policy or market pricing in of potential dividend risk.">Dividend yield</span></td>
+          <td class="dim">—</td><td>3.5%</td><td>5.2%</td><td>5.6%</td><td>8.5%</td><td>7.8%</td>
+        </tr>
+        <tr>
+          <td><span class="tt" data-label="Market cap / revenue" data-tip="Market capitalisation divided by annual revenue. A rough price-to-sales multiple. Useful for comparing companies where earnings are volatile or negative.">Market cap / revenue</span></td>
+          <td>0.41×</td><td>0.77×</td><td>0.61×</td><td>0.58×</td><td>0.57×</td><td>0.64×</td>
+        </tr>
+
+        <tr class="row-section"><td colspan="7">Price performance</td></tr>
+        <tr>
+          <td><span class="tt" data-label="Share price performance YoY" data-tip="Year-on-year percentage change in the December closing share price. Shows how the market re-rated the company over the year, independent of dividends paid.">Share price performance YoY</span></td>
+          <td class="dim">—</td>
+          <td class="ratio-good">+104%</td>
+          <td class="ratio-bad">−20%</td>
+          <td class="ratio-bad">−6%</td>
+          <td class="ratio-bad">−2%</td>
+          <td class="ratio-good">+9%</td>
+        </tr>
+        <tr>
+          <td colspan="7" class="source-note">
+            Year-end prices: real (unadjusted) closing prices sourced from Digrin / Yahoo Finance data.
+            2021 dividend: 5.0c; 2022: 6.0c; 2023: 6.0c; 2024: 9.0c; 2025: 9.0c.
+            Price/book uses total equity at year-end. EV excludes IFRS 16 lease liabilities.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footnotes">
+    <strong>Context:</strong> NZM.NZ trades at 3.5–4.5× EV/EBITDA — consistent with a traditional media company in structural transition.
+    The low P/B (2.2×) relative to peers reflects ongoing retained loss accumulation against an eroding asset base.
+    The 7–8% trailing dividend yield at current prices prices in meaningful ongoing distributions.
+    The 2021 spike in P/E (8.2×) and apparent cheapness reflects the GrabOne disposal gain inflating NPAT that year.
+  </div>
+</div>
+
+
+<!-- ══ NZME CORPORATE TAB ══ -->
+<div class="tab-pane" id="tab-corporate">
+  <p class="section-title">Corporate information</p>
+  <p class="section-note">Source: NZX company file, updated 17 March 2026.</p>
+
+  <div class="corp-grid">
+    <div class="corp-box">
+      <div class="corp-box-title">Company details</div>
+      <table>
+        <tr><td>NZX code</td><td>NZM (also ASX: NZM)</td></tr>
+        <tr><td>First listed</td><td>27 June 2016 (demerged from APN)</td></tr>
+        <tr><td>Balance date</td><td>31 December</td></tr>
+        <tr><td>Shares on issue</td><td>188,181,619</td></tr>
+        <tr><td>Chair</td><td>Steven Joyce</td></tr>
+        <tr><td>CEO</td><td>Michael Boggs</td></tr>
+        <tr><td>CFO</td><td>Jo Hempstead</td></tr>
+        <tr><td>Auditors</td><td>PricewaterhouseCoopers</td></tr>
+        <tr><td>Legal</td><td>Bell Gully</td></tr>
+        <tr><td>Registry</td><td>MUFG Pension &amp; Market Services</td></tr>
+        <tr><td>AGM</td><td>22 April 2026</td></tr>
+      </table>
+    </div>
+
+    <div class="corp-box">
+      <div class="corp-box-title">Recent dividends</div>
+      <table>
+        <thead><tr>
+          <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Period</td>
+          <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Amount</td>
+          <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Imputation</td>
+          <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Pay date</td>
+        </tr></thead>
+        <tr><td>FY25 final</td><td>6.0c</td><td>2.333c</td><td>31 Mar 2025</td></tr>
+        <tr><td>FY26 interim</td><td>3.0c</td><td>1.167c</td><td>24 Sep 2025</td></tr>
+        <tr><td>FY26 final</td><td>6.0c</td><td>2.333c</td><td>18 Mar 2026</td></tr>
+        <tr><td colspan="4" style="font-size:11px;color:var(--ink-light);font-style:italic;">FY26 full year: 9.0c (fully imputed). Consistent with FY25.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="corp-box" style="margin-bottom:20px;">
+    <div class="corp-box-title">Substantial security holders <span style="font-weight:400;text-transform:none;font-size:10px;"> — latest NZX disclosure per holder</span></div>
+    <table>
+      <thead><tr>
+        <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Holder</td>
+        <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Disclosure date</td>
+        <td style="font-weight:700;font-size:11px;color:var(--ink-mid);text-align:right;">Shares held</td>
+        <td style="font-weight:700;font-size:11px;color:var(--ink-mid);text-align:right;">% at disclosure</td>
+        <td style="font-weight:700;font-size:11px;color:var(--ink-mid);text-align:right;">% current est.</td>
+      </tr></thead>
+      <tr><td>Spheria Asset Management</td><td>26 Mar 2024</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">35,702,300</td><td style="text-align:right;">13.38%</td><td style="text-align:right;font-weight:600;">19.12%</td></tr>
+      <tr><td>Pinnacle Investment Management</td><td>11 Mar 2026</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">17,103,017</td><td style="text-align:right;">10.99%</td><td style="text-align:right;font-weight:600;">9.09%</td></tr>
+      <tr><td>Osmium Partners LLC</td><td>20 Aug 2025</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">10,433,513</td><td style="text-align:right;">6.57%</td><td style="text-align:right;font-weight:600;">5.55%</td></tr>
+      <tr><td>Auscap Asset Management</td><td>05 Jul 2022</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">9,670,000</td><td style="text-align:right;">7.32%</td><td style="text-align:right;font-weight:600;">5.00%</td></tr>
+      <tr><td>Répertoire Partners LP</td><td>03 Mar 2025</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">4,978,683</td><td style="text-align:right;">6.74%</td><td style="text-align:right;font-weight:600;">2.65%</td></tr>
+      <tr><td colspan="5" style="font-size:11px;color:var(--ink-light);font-style:italic;">% current est. = shares held at disclosure / current shares on issue (188,181,619). Actual current holdings may differ.</td></tr>
+    </table>
+  </div>
+
+  <div class="corp-box">
+    <div class="corp-box-title">Board of directors &amp; principals</div>
+    <table>
+      <tr><td>Steven Joyce</td><td>Chair (appointed 2025)</td></tr>
+      <tr><td>Michael Boggs</td><td>Chief Executive Officer</td></tr>
+      <tr><td>Jo Hempstead</td><td>Chief Financial Officer (appointed early 2026)</td></tr>
+      <tr><td>Carol Campbell</td><td>Independent Director</td></tr>
+      <tr><td>James Grenon</td><td>Director (35,694,802 shares)</td></tr>
+      <tr><td>Guy Horrocks</td><td>Independent Director</td></tr>
+      <tr><td>Bowen Pan</td><td>Independent Director</td></tr>
+      <tr><td>Kate Parsons</td><td>Independent Director</td></tr>
+      <tr><td>Sussan Turner</td><td>Independent Director</td></tr>
+    </table>
+  </div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /co-nzme -->
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── Chart defaults ──
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#8a90a0';
+
+const YEARS = ['2020','2021','2022','2023','2024','2025'];
+const BLUE = '#42a2dc';
+const RED = '#d0021b';
+const DARK = '#111318';
+const GRID = '#e2e5ec';
+
+function baseOpts(title) {
+  return {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: { display: true, position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 10 } } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}` } }
+    },
+    scales: {
+      x: { grid: { color: GRID }, ticks: { font: { size: 10 } } },
+      y: { grid: { color: GRID }, ticks: { font: { size: 10 } } }
+    }
+  };
+}
+
+// Chart 1 – Revenue vs Op. EBITDA
+new Chart(document.getElementById('chartRevEbitda'), {
+  type: 'bar',
+  data: {
+    labels: YEARS,
+    datasets: [
+      {
+        label: 'Op. Revenue ($m)',
+        data: [331.2, 349.2, 364.6, 346.6, 350.2, 345.1],
+        backgroundColor: 'rgba(66,162,220,0.18)',
+        borderColor: BLUE,
+        borderWidth: 1.5,
+        yAxisID: 'yRev',
+        order: 2,
+      },
+      {
+        label: 'Op. EBITDA ($m)',
+        data: [66.0, 66.0, 64.7, 56.2, 54.2, 62.3],
+        type: 'line',
+        borderColor: RED,
+        backgroundColor: 'rgba(208,2,27,0.08)',
+        borderWidth: 2,
+        pointRadius: 4,
+        pointBackgroundColor: RED,
+        fill: false,
+        yAxisID: 'yEbitda',
+        order: 1,
+      }
+    ]
+  },
+  options: {
+    ...baseOpts(),
+    scales: {
+      x: { grid: { color: GRID }, ticks: { font: { size: 10 } } },
+      yRev: { position: 'left', title: { display: true, text: 'Revenue $m', font: { size: 10 } }, grid: { color: GRID }, min: 280 },
+      yEbitda: { position: 'right', title: { display: true, text: 'EBITDA $m', font: { size: 10 } }, grid: { drawOnChartArea: false }, min: 40, max: 90 }
+    }
+  }
+});
+
+// Chart 2 – Margins
+new Chart(document.getElementById('chartMargins'), {
+  type: 'line',
+  data: {
+    labels: YEARS,
+    datasets: [
+      {
+        label: 'Op. EBITDA margin',
+        data: [19.9, 18.9, 17.7, 16.2, 15.5, 18.1],
+        borderColor: BLUE,
+        backgroundColor: 'rgba(66,162,220,0.08)',
+        borderWidth: 2,
+        pointRadius: 4,
+        fill: true,
+      },
+      {
+        label: 'NPAT margin',
+        data: [4.3, 9.4, 6.2, 3.5, null, 3.8],
+        borderColor: RED,
+        borderDash: [4, 3],
+        borderWidth: 1.5,
+        pointRadius: 4,
+        pointBackgroundColor: RED,
+        fill: false,
+      }
+    ]
+  },
+  options: {
+    ...baseOpts(),
+    scales: {
+      x: { grid: { color: GRID } },
+      y: { grid: { color: GRID }, ticks: { callback: v => v + '%' }, min: 0, max: 25 }
+    }
+  }
+});
+
+// Chart 3 – Net debt
+new Chart(document.getElementById('chartDebt'), {
+  type: 'bar',
+  data: {
+    labels: YEARS,
+    datasets: [{
+      label: 'Net debt ($m)',
+      data: [33.8, -13.5, 17.5, 18.0, 24.1, 15.5],
+      backgroundColor: [
+        'rgba(208,2,27,0.5)',
+        'rgba(10,124,75,0.5)',
+        'rgba(208,2,27,0.3)',
+        'rgba(208,2,27,0.3)',
+        'rgba(208,2,27,0.4)',
+        'rgba(10,124,75,0.4)',
+      ],
+      borderColor: [RED, '#0a7c4b', RED, RED, RED, '#0a7c4b'],
+      borderWidth: 1.5,
+    }]
+  },
+  options: {
+    ...baseOpts(),
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: GRID } },
+      y: { grid: { color: GRID }, ticks: { callback: v => '$' + v + 'm' } }
+    }
+  }
+});
+
+// Chart 4 – EPS
+new Chart(document.getElementById('chartEPS'), {
+  type: 'line',
+  data: {
+    labels: YEARS,
+    datasets: [
+      {
+        label: 'Basic EPS (statutory)',
+        data: [7.48, 17.54, 12.09, 6.95, -8.59, 6.96],
+        borderColor: DARK,
+        backgroundColor: 'rgba(17,19,24,0.06)',
+        borderWidth: 2,
+        pointRadius: 4,
+        fill: true,
+      },
+      {
+        label: 'Operating EPS',
+        data: [null, 11.9, 12.1, 7.7, 6.5, 9.4],
+        borderColor: BLUE,
+        borderDash: [5, 3],
+        borderWidth: 1.5,
+        pointRadius: 4,
+        pointBackgroundColor: BLUE,
+        fill: false,
+      }
+    ]
+  },
+  options: {
+    ...baseOpts(),
+    scales: {
+      x: { grid: { color: GRID } },
+      y: { grid: { color: GRID }, ticks: { callback: v => v + 'c' } }
+    }
+  }
+});
+
+// ── Share price chart ──
+new Chart(document.getElementById('chartPrice'), {
+  type: 'line',
+  data: {
+    labels: ['2020','2021','2022','2023','2024','2025'],
+    datasets: [{
+      label: 'Year-end close (NZ$)',
+      data: [0.70, 1.43, 1.15, 1.08, 1.06, 1.16],
+      borderColor: BLUE,
+      backgroundColor: 'rgba(66,162,220,0.10)',
+      borderWidth: 2.5,
+      pointRadius: 5,
+      pointBackgroundColor: BLUE,
+      fill: true,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: GRID } },
+      y: { grid: { color: GRID }, ticks: { callback: v => '$' + v.toFixed(2) }, min: 0 }
+    }
+  }
+});
+
+// ── Live price fetch from Yahoo Finance (same CORS proxy approach as StockRocket) ──
+async function fetchLivePrice() {
+  const SHARES = 188.0;   // m — 2025 approximate
+  const NET_DEBT = 15.5;  // $m
+  const EBITDA_OP = 62.3; // $m Op.EBITDA 2025
+  const NPAT = 13.087;    // $m 2025
+
+  const apiUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/NZM.NZ?interval=1d&range=5d';
+  const proxies = [
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  ];
+
+  for (const proxy of proxies) {
+    try {
+      const resp = await fetch(proxy(apiUrl), { signal: AbortSignal.timeout(8000) });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (!meta?.regularMarketPrice) continue;
+
+      const price = meta.regularMarketPrice;
+      const prevClose = meta.chartPreviousClose || meta.previousClose || price;
+      const change = price - prevClose;
+      const changePct = (change / prevClose) * 100;
+      const mcap = (price * SHARES).toFixed(1);
+      const ev = (price * SHARES + NET_DEBT).toFixed(1);
+      const evEbitda = ((price * SHARES + NET_DEBT) / EBITDA_OP).toFixed(1);
+      const pe = (price * SHARES / NPAT).toFixed(1);
+      const arrow = change >= 0 ? '▲' : '▼';
+      const cls = change >= 0 ? 'up' : 'down';
+
+      // Nav bar
+      document.getElementById('livePrice').textContent = `NZM.NZ $${price.toFixed(3)}`;
+      document.getElementById('livePriceChange').textContent = `${arrow} ${Math.abs(changePct).toFixed(2)}%`;
+      document.getElementById('livePriceChange').className = `kpi-delta ${cls}`;
+      document.getElementById('livePriceStatus').textContent = '(15min delay)';
+
+      // Valuation cards
+      document.getElementById('vLive-price').textContent = `$${price.toFixed(3)}`;
+      document.getElementById('vLive-price').className = `kpi-value${change < 0 ? ' negative' : ''}`;
+      document.getElementById('vLive-change').textContent = `${arrow} ${change >= 0 ? '+' : ''}${change.toFixed(3)} (${changePct.toFixed(2)}%)`;
+      document.getElementById('vLive-change').className = `kpi-delta ${cls}`;
+      document.getElementById('vLive-time').textContent = 'vs prev close';
+      document.getElementById('vLive-mcap').textContent = `$${mcap}m`;
+      document.getElementById('vLive-ev').textContent = `${evEbitda}×`;
+      document.getElementById('vLive-pe').textContent = `${pe}×`;
+      return;
+    } catch(e) { continue; }
+  }
+
+  // Fallback — proxies unavailable
+  document.getElementById('livePriceStatus').textContent = '(open in browser for live price)';
+  document.getElementById('livePrice').textContent = 'NZM.NZ';
+  document.getElementById('vLive-time').textContent = 'requires browser fetch';
+}
+
+fetchLivePrice();
+
+// ── Tooltip engine ──────────────────────────────────────────
+(function() {
+  const pop = document.createElement('div');
+  pop.id = 'tt-popup';
+  document.body.appendChild(pop);
+  let hide;
+
+  function show(el) {
+    clearTimeout(hide);
+    const tip = el.dataset.tip;
+    if (!tip) return;
+    const lbl = el.dataset.label ? `<span class="tt-head">${el.dataset.label}</span>` : '';
+    pop.innerHTML = lbl + tip;
+    pop.classList.add('visible');
+    move(el);
+  }
+
+  function move(el) {
+    const r = el.getBoundingClientRect();
+    const W = window.innerWidth, H = window.innerHeight;
+    const pw = Math.min(300, W - 20);
+    pop.style.maxWidth = pw + 'px';
+    let left = Math.min(r.left, W - pw - 10);
+    if (left < 8) left = 8;
+    let top = r.bottom + 8;
+    const ph = pop.offsetHeight;
+    if (top + ph > H - 8) top = r.top - ph - 8;
+    pop.style.left = left + 'px';
+    pop.style.top = Math.max(4, top) + 'px';
+  }
+
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest('[data-tip]');
+    if (el) show(el);
+  });
+  document.addEventListener('mouseout', e => {
+    const el = e.target.closest('[data-tip]');
+    if (el) hide = setTimeout(() => pop.classList.remove('visible'), 100);
+  });
+})();
+
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- SKY TV SECTION                                                 -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="co-section" id="co-sky">
+<div class="tab-nav" id="sky-tab-nav">
+  <button class="tab-btn active" onclick="showSkyTab('sky-overview')">Overview</button>
+  <button class="tab-btn" onclick="showSkyTab('sky-pl')">P&amp;L</button>
+  <button class="tab-btn" onclick="showSkyTab('sky-balance')">Balance sheet</button>
+  <button class="tab-btn" onclick="showSkyTab('sky-ratios')">Ratios &amp; KPIs</button>
+  <button class="tab-btn" onclick="showSkyTab('sky-valuation')">Valuation</button>
+  <button class="tab-btn" onclick="showSkyTab('sky-corporate')">Corporate</button>
+  <div style="margin-left:auto;display:flex;align-items:center;padding:0 8px;gap:8px;">
+    <span id="skyLivePrice" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#42a2dc;">SKT.NZ —</span>
+    <span id="skyLivePriceChange" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8a90a0;"></span>
+    <span id="skyLivePriceStatus" style="font-size:10px;color:#8a90a0;">fetching…</span>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ══ SKY OVERVIEW ══ -->
+<div class="tab-pane active" id="tab-sky-overview">
+<div class="hy-banner">
+  <div>
+    <div class="hy-banner-title">Latest results — HY26 (6 months ended 31 December 2025) · released 26 Feb 2026</div>
+    <div class="hy-banner-headline">Strong first half as expanded Sky builds momentum</div>
+    <p>First reporting period including Discovery NZ (now Sky Free — TV3, ThreeNow). Underlying revenue +8% to $415.4m; underlying EBITDA +29% to $78.2m through lower programming costs and cost discipline. Statutory NPAT of $52.4m includes $34.4m bargain purchase gain on Discovery NZ acquisition and $8.2m Optus compensation. Interim dividend of 15.0c (+76.5%) signals strong FY26 full-year of 30.0c on track.</p>
+  </div>
+  <div class="hy-stats">
+    <div class="hy-stat">
+      <div class="hy-stat-val">$415m</div>
+      <div class="hy-stat-lbl">HY Revenue</div>
+      <div class="hy-stat-chg">▲ +8%</div>
+    </div>
+    <div class="hy-stat">
+      <div class="hy-stat-val">$78.2m</div>
+      <div class="hy-stat-lbl">HY EBITDA</div>
+      <div class="hy-stat-chg">▲ +29%</div>
+    </div>
+    <div class="hy-stat">
+      <div class="hy-stat-val">$100m</div>
+      <div class="hy-stat-lbl">Cash (Dec 25)</div>
+      <div class="hy-stat-chg">▲ from $32m</div>
+    </div>
+    <div class="hy-stat">
+      <div class="hy-stat-val">15.0c</div>
+      <div class="hy-stat-lbl">Interim div</div>
+      <div class="hy-stat-chg">▲ +76.5%</div>
+    </div>
+  </div>
+</div>
+<div class="summary-panel sky">
+  <div class="summary-body">
+    <div class="summary-headline">Sky Network Television — NZX/ASX: SKT</div>
+    <p>Sky is New Zealand's dominant pay-TV and streaming operator, delivering sport and entertainment via satellite (Sky Box), streaming (Neon, Sky Sport Now), broadband and commercial services. Sky Box subscription remains the revenue anchor at ~62% of total revenue ($751m in FY25), but streaming, broadband and advertising are all growing. Sky acquired Discovery NZ (now Sky Free — TV3, ThreeNow) for $1 in August 2025, materially expanding its free-to-air and BVOD presence.</p>
+    <p>FY2025 (year ended 30 June 2025) was dominated by the accelerated migration to a new satellite (KoreaSat6, completed April 2025), which disrupted customer engagement, caused ~$29m of one-off costs and delayed planned revenue initiatives. Statutory NPAT of $20.6m significantly understates underlying performance — Adjusted NPAT was $41.1m and Adjusted EBITDA $148.5m (−3% YoY). Programming costs at 50.9% of revenue remain above the 47–49% target. Sky has no drawn bank debt and $32.4m cash, supporting a 15.8% dividend increase to 22.0 cents, with 30 cents guided for FY26.</p>
+    <p>The HY26 result (6 months to 31 Dec 2025) confirmed the FY26 recovery: underlying revenue +8% to $415m, EBITDA +29% to $78.2m, and closing cash of $100m. FY26 broker consensus forecasts NPAT of $69.2m and a 30 cent dividend (+36%). Sky trades at ~2.6× EV/Adj. EBITDA on trailing earnings — cheap relative to global pay-TV peers, with the Discovery NZ acquisition and NZR deal as key FY26 catalysts. $244m goodwill is the primary balance sheet risk.</p>
+  </div>
+  <div class="summary-tags">
+    <span class="summary-tag tag-grey">NZX / ASX dual-listed</span>
+    <span class="summary-tag tag-grey">Jun year-end</span>
+    <span class="summary-tag tag-amber">Adj. EBITDA −3%</span>
+    <span class="summary-tag tag-amber">Revenue −2.1%</span>
+    <span class="summary-tag tag-green">No bank debt</span>
+    <span class="summary-tag tag-blue">Yield ~7.4%</span>
+    <span class="summary-tag tag-grey">EV/EBITDA ~2.6×</span>
+  </div>
+</div>
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Revenue FY25" data-tip="Sky TV operating revenue for the year ended 30 June 2025. Sky operates on a June year-end.">Revenue FY25</span></div>
+      <div class="kpi-value">$751m</div>
+      <div class="kpi-delta down">▼ 2.1% YoY</div>
+      <div class="kpi-year">vs $767m in FY24</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Adj. EBITDA FY25" data-tip="Management non-GAAP Adjusted EBITDA for FY25. Excludes satellite migration one-off items. Reported statutory EBITDA was $120.6m.">Adj. EBITDA FY25</span> <span class="tt-icon" data-label="Adj. EBITDA FY25" data-tip="Management non-GAAP Adjusted EBITDA for FY25. Excludes satellite migration one-off items. Reported statutory EBITDA was $120.6m.">?</span></div>
+      <div class="kpi-value">$148.5m</div>
+      <div class="kpi-delta down">▼ 3.0% YoY</div>
+      <div class="kpi-year">vs $153.0m in FY24</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="NPAT FY25" data-tip="Statutory net profit after tax. Reported $20.6m. Adjusted NPAT (excl. one-offs) was $41.1m — down 16.5% on FY24's $49.2m adjusted.">NPAT FY25</span></div>
+      <div class="kpi-value">$20.6m</div>
+      <div class="kpi-delta down">▼ from $49.2m</div>
+      <div class="kpi-year">Adj. NPAT: $41.1m</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="EPS (basic)" data-tip="Statutory basic earnings per share. Adjusted EPS was significantly higher at ~29.8c, stripping out satellite migration costs.">EPS (basic)</span></div>
+      <div class="kpi-value">14.69c</div>
+      <div class="kpi-delta down">▼ vs 34.44c FY24</div>
+      <div class="kpi-year">Adj. EPS: ~29.8c</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Net debt (bank)" data-tip="Sky had zero drawn bank debt at 30 June 2025. Cash on hand was $32.4m. Lease liabilities (IFRS 16) of $72.6m are excluded — mainly the new satellite transmission lease.">Net bank debt</span></div>
+      <div class="kpi-value">nil</div>
+      <div class="kpi-delta up">Cash: $32.4m</div>
+      <div class="kpi-year">$100m facility undrawn</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Total dividend" data-tip="Full-year dividend: 8.5c interim (March 2025) + 13.5c final (September 2025) = 22.0 cents per share, fully imputed. +15.8% on FY24's 19.0c.">Total dividend</span></div>
+      <div class="kpi-value">22.0c</div>
+      <div class="kpi-delta up">▲ 15.8% YoY</div>
+      <div class="kpi-year">Guidance: 30c in FY26</div>
+    </div>
+  </div>
+
+<div class="fwd-strip">
+  <div class="fwd-strip-header">
+    Broker consensus — FY2026 forward estimates (year ending 30 June 2026)
+    <span>1 analyst · source: NZX research feed · updated 17/03/2026</span>
+  </div>
+  <table class="fwd-table">
+    <thead><tr>
+      <th>Metric</th>
+      <th>FY2025 actual (adj.)</th>
+      <th>FY2026 consensus</th>
+      <th>Change</th>
+    </tr></thead>
+    <tbody>
+      <tr><td><span class="tt" data-label="Revenue forecast" data-tip="Consensus forecast for total revenue in FY2026, including full-year contribution from Discovery NZ (Sky Free).">Revenue ($m)</span></td>
+        <td>$750.7m</td><td>$825.3m</td><td class="fwd-change-up">▲ +9.9%</td></tr>
+      <tr><td><span class="tt" data-label="EBITDA forecast" data-tip="Consensus forecast for adjusted EBITDA in FY2026.">Adj. EBITDA ($m)</span></td>
+        <td>$148.5m</td><td>$151.9m</td><td class="fwd-change-up">▲ +2.3%</td></tr>
+      <tr><td><span class="tt" data-label="EBIT forecast" data-tip="Consensus forecast for EBIT in FY2026.">EBIT ($m)</span></td>
+        <td>$60.0m adj.</td><td>$54.6m</td><td class="fwd-change-dn">▼ −9%</td></tr>
+      <tr><td><span class="tt" data-label="NPAT forecast" data-tip="Consensus forecast for net profit after tax in FY2026. Statutory FY2025 was $20.6m; adjusted was $41.1m.">NPAT ($m)</span></td>
+        <td>$41.1m adj.</td><td>$69.2m</td><td class="fwd-change-up">▲ +68%</td></tr>
+      <tr><td><span class="tt" data-label="EPS forecast" data-tip="Consensus forecast for basic EPS in FY2026 (cents per share).">EPS (cents)</span></td>
+        <td>14.69c stat / ~29.8c adj.</td><td>27.2c</td><td class="fwd-change-up">▲ strong</td></tr>
+      <tr><td><span class="tt" data-label="DPS forecast" data-tip="Consensus forecast for total dividends per share in FY2026. Consistent with management guidance of 30 cents.">DPS (cents)</span></td>
+        <td>22.0c</td><td>30.0c</td><td class="fwd-change-up">▲ +36%</td></tr>
+    </tbody>
+  </table>
+</div>
+  <div class="chart-grid">
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="Revenue vs Adj. EBITDA" data-tip="Bars: statutory revenue ($m). Line (right axis): Adjusted EBITDA — management non-GAAP figure excluding one-off items. FY25 statutory EBITDA was $120.6m vs $148.5m adjusted.">Revenue vs Adj. EBITDA ($m)</span></div>
+      <canvas id="skyChartRevEbitda"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="EBITDA margin trend" data-tip="Statutory EBITDA margin (statutory EBITDA / total revenue and income). Declining from 24.9% (FY21) to 15.9% (FY25) as programming costs and infrastructure costs rose faster than revenue.">EBITDA margin (%)</span></div>
+      <canvas id="skyChartMargins"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="Cash position" data-tip="Cash and cash equivalents at year end. Excludes drawn bank debt (nil in FY24 and FY25). FY22 high reflects proceeds from the sale of Mt Wellington property and other asset disposals.">Cash position ($m)</span></div>
+      <canvas id="skyChartCash"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="Earnings per share" data-tip="Statutory basic EPS (cents). FY25 decline driven by satellite migration one-off costs ($29m pre-tax). Adjusted EPS (~30c) is more representative of underlying earnings.">Earnings per share (cents)</span></div>
+      <canvas id="skyChartEPS"></canvas>
+    </div>
+  </div>
+
+  <div class="footnotes">
+    <strong>Sky TV overview:</strong> Year ended 30 June. Figures in NZD $000. 
+    FY25 results impacted by ~$29m of satellite migration one-off costs (non-cash accelerated amortisation + cash costs) and $4.4m forgone revenue. 
+    Adjusted figures exclude these items. Sky is dual-listed on NZX (SKT) and ASX (SKT).
+    130 June year-end means Sky's FY25 covers July 2024–June 2025 — a different period to NZME's calendar year 2025.
+    Programming costs as % of revenue target: 47–49% (FY25 adjusted: 50.9%).
+  </div>
+</div>
+
+<!-- ══ SKY P&L ══ -->
+<div class="tab-pane" id="tab-sky-pl">
+  <p class="section-title">Consolidated income statement <span class="badge badge-gaap">Statutory</span></p>
+  <p class="section-note">All figures $NZD '000. Year ended 30 June.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Line item</th><th>FY21</th><th>FY22</th><th>FY23</th><th>FY24</th><th>FY25</th></tr></thead>
+    <tbody>
+      <tr class="row-section"><td colspan="6">Revenue</td></tr>
+      <tr><td><span class="tt" data-label="Revenue" data-tip="Core operating revenue: Sky Box subscriptions, streaming (Neon, Sky Sport Now), broadband, commercial, advertising and other. Excludes other income.">Revenue</span></td>
+        <td>711,234</td><td>736,111</td><td>754,100</td><td>766,734</td><td>750,723</td></tr>
+      <tr><td><span class="tt" data-label="Other income" data-tip="Non-trading income: R&D tax credits, asset disposal gains, lease modification gains, government grants. FY22 elevated by property sale proceeds. FY25 includes $4.9m satellite lease modification gain.">Other income</span></td>
+        <td>13,520</td><td>16,753</td><td>3,515</td><td>471</td><td>7,681</td></tr>
+      <tr class="row-subtotal"><td class="bold">Total revenue and other income</td>
+        <td>724,754</td><td>752,864</td><td>757,615</td><td>767,205</td><td>758,404</td></tr>
+
+      <tr class="row-section"><td colspan="6">Operating expenses</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Programming" data-tip="Largest cost: sports and entertainment rights, production costs for live broadcasts, channel pass-through fees, streaming rights and music rights. Sky targets programming costs at 47–49% of revenue. FY25 reported: 53.8% (adjusted: 50.9%).">Programming</span></td>
+        <td class="neg">(329,354)</td><td class="neg">(365,347)</td><td class="neg">(386,614)</td><td class="neg">(391,630)</td><td class="neg">(404,124)</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Subscriber related costs" data-tip="Costs of servicing and monitoring customer equipment, customer care, installation, sales and marketing, and general administrative costs for customer management.">Subscriber related costs</span></td>
+        <td class="neg">(93,070)</td><td class="neg">(93,233)</td><td class="neg">(90,376)</td><td class="neg">(80,566)</td><td class="neg">(71,367)</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Broadcasting & infrastructure" data-tip="Transmission and delivery costs: satellite uplink, internet streaming, studio and office facilities, broadband input costs from local fibre companies. Rising sharply as broadband subscribers grow and streaming volumes increase.">Broadcasting &amp; infrastructure</span></td>
+        <td class="neg">(66,694)</td><td class="neg">(70,586)</td><td class="neg">(79,777)</td><td class="neg">(87,239)</td><td class="neg">(103,971)</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Other costs" data-tip="Overhead costs: consultancy, technology, legal, finance and other administrative expenses.">Other costs</span></td>
+        <td class="neg">(55,259)</td><td class="neg">(54,682)</td><td class="neg">(52,340)</td><td class="neg">(54,735)</td><td class="neg">(58,304)</td></tr>
+      <tr class="row-subtotal"><td class="bold"><span class="tt" data-label="Total opex (before D&A)" data-tip="All operating costs before depreciation and amortisation. Key driver of EBITDA.">Total opex (before D&amp;A)</span></td>
+        <td class="neg">(544,377)</td><td class="neg">(583,848)</td><td class="neg">(609,107)</td><td class="neg">(614,170)</td><td class="neg">(637,766)</td></tr>
+
+      <tr class="row-section"><td colspan="6">Earnings</td></tr>
+      <tr class="row-subtotal"><td class="bold"><span class="tt" data-label="EBITDA (calc.)" data-tip="Total revenue and income minus total opex before D&A. Note: Sky's Adjusted EBITDA (non-GAAP) excludes satellite migration costs, accelerated content amortisation and other one-offs. FY25 adjusted: $148.5m; statutory: $120.6m.">EBITDA (calc.)</span></td>
+        <td>180,377</td><td>169,016</td><td>148,508</td><td>153,035</td><td>120,638</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="D&A" data-tip="Depreciation of PP&E (broadcaster/customer equipment, installation costs) plus amortisation of software intangibles and depreciation of right-of-use assets (IFRS 16 leases). FY25 includes accelerated Neon content amortisation of $18.3m in reported figures.">D&amp;A and impairment</span></td>
+        <td class="neg">(107,991)</td><td class="neg">(80,171)</td><td class="neg">(74,098)</td><td class="neg">(83,271)</td><td class="neg">(89,141)</td></tr>
+      <tr class="row-subtotal"><td class="bold"><span class="tt" data-label="EBIT" data-tip="Earnings before interest and tax. Operating profit after all depreciation and amortisation charges.">EBIT</span></td>
+        <td>72,386</td><td>88,845</td><td>74,410</td><td>69,764</td><td>31,497</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Finance income/(expense)" data-tip="Net interest income/expense on bank facilities and IFRS 16 lease liabilities, plus unrealised foreign exchange gains/losses on hedging instruments. Sky hedges foreign currency programme rights purchases extensively.">Finance income / (expense) net</span></td>
+        <td class="neg">(10,536)</td><td class="neg">(5,280)</td><td class="neg">(3,513)</td><td class="neg">(1,057)</td><td class="neg">(2,576)</td></tr>
+      <tr class="row-subtotal"><td class="bold"><span class="tt" data-label="PBT" data-tip="Profit before income tax, after all operating costs, D&A and finance items.">Profit before tax</span></td>
+        <td>63,345</td><td>80,751</td><td>71,055</td><td>68,707</td><td>28,921</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Tax" data-tip="Income tax expense at NZ 28% rate, adjusted for deferred tax movements. The effective rate in FY25 was lower (~29%) due to recognition of previously unrecognised tax losses.">Income tax expense</span></td>
+        <td class="neg">(20,343)</td><td class="neg">(18,539)</td><td class="neg">(19,884)</td><td class="neg">(19,484)</td><td class="neg">(8,331)</td></tr>
+      <tr class="row-total"><td><span class="tt" data-label="NPAT" data-tip="Statutory net profit after tax. FY25 statutory figure includes satellite migration one-offs ($29m pre-tax). Adjusted NPAT excluding these was $41.1m.">Net profit after tax</span></td>
+        <td>47,546</td><td>62,212</td><td>51,013</td><td>49,223</td><td>20,590</td></tr>
+      <tr><td class="indent">— attributable to equity holders</td>
+        <td>47,228</td><td>62,145</td><td>50,754</td><td>48,964</td><td>20,228</td></tr>
+
+      <tr class="row-section"><td colspan="6">Per share</td></tr>
+      <tr><td><span class="tt" data-label="Basic EPS (cents)" data-tip="Earnings per share: NPAT to equity holders divided by weighted average shares on issue. SKY has been actively buying back shares — weighted avg shares reduced from ~187m (FY21) to 137.7m (FY25).">Basic EPS (cents)</span></td>
+        <td>25.17c</td><td>35.57c</td><td>32.37c</td><td>34.44c</td><td>14.69c</td></tr>
+      <tr><td colspan="6" class="source-note">FY21 figures restated in FY22 report. Finance income/(expense) shown as net. FY21 D&A includes $107.9m — elevated due to accelerated depreciation of legacy satellite and set-top box equipment in that transition year.</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<!-- ══ SKY BALANCE SHEET ══ -->
+<div class="tab-pane" id="tab-sky-balance">
+  <p class="section-title">Consolidated balance sheet <span class="badge badge-gaap">Statutory</span></p>
+  <p class="section-note">All figures $NZD '000. As at 30 June.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Line item</th><th>FY21</th><th>FY22</th><th>FY23</th><th>FY24</th><th>FY25</th></tr></thead>
+    <tbody>
+      <tr class="row-section"><td colspan="6">Current assets</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Cash" data-tip="Cash at bank and short-term deposits. FY22 spike reflects Mt Wellington property sale proceeds ($34m). Sky also holds an undrawn $100m bank facility — actual liquidity is higher than cash alone.">Cash and cash equivalents</span></td>
+        <td>34,800</td><td>138,916</td><td>56,051</td><td>37,799</td><td>32,410</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Programme rights inventory" data-tip="Programming rights paid for but not yet broadcast (recognised as inventory once the licence period commences). Significant balance reflecting advance payments on multi-year sports rights deals.">Programme rights inventory</span></td>
+        <td>103,154</td><td>121,407</td><td>134,812</td><td>125,644</td><td>70,927</td></tr>
+      <tr><td class="indent">Trade receivables and other</td>
+        <td>67,962</td><td>69,704</td><td>57,357</td><td>73,774</td><td>65,088</td></tr>
+      <tr class="row-subtotal"><td class="bold">Total current assets</td>
+        <td>205,916</td><td>330,027</td><td>248,220</td><td>237,217</td><td>168,425</td></tr>
+      
+      <tr class="row-section"><td colspan="6">Non-current assets</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Goodwill" data-tip="Goodwill of $244.3m (stable since FY22) arising from the original INL acquisition in 2005 and subsequent acquisitions. Subject to annual impairment testing. No impairment in FY25 — management assess recoverable amount exceeds carrying value.">Goodwill</span></td>
+        <td>255,245</td><td>244,264</td><td>244,264</td><td>244,264</td><td>244,264</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="PP&E" data-tip="Property, plant and equipment: customer premises equipment (Sky Boxes, Pods, dishes), broadcasting and studio equipment, capitalised installation costs. FY25 rise reflects new Sky Box and Pod hardware investment.">Property, plant &amp; equipment</span></td>
+        <td>100,192</td><td>71,393</td><td>91,918</td><td>116,930</td><td>126,958</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Right-of-use assets (IFRS 16)" data-tip="Leased assets capitalised: property (offices, studios), transmission/satellite equipment and motor vehicles. FY25 spike to $62.1m reflects new satellite transmission lease (KoreaSat6, commencing April 2025).">Right-of-use assets (IFRS 16)</span></td>
+        <td>64,272</td><td>57,301</td><td>39,399</td><td>16,722</td><td>62,147</td></tr>
+      <tr><td class="indent">Intangibles and other non-current</td>
+        <td>63,587</td><td>60,583</td><td>66,373</td><td>66,268</td><td>71,073</td></tr>
+      <tr class="row-subtotal"><td class="bold">Total non-current assets</td>
+        <td>483,296</td><td>433,541</td><td>441,954</td><td>444,167</td><td>504,442</td></tr>
+
+      <tr class="row-total"><td><span class="tt" data-label="Total assets" data-tip="Total assets. Note: programme rights inventory is a large working capital item ($71m–$135m), reflecting advance payments on content rights not yet available for broadcast.">Total assets</span></td>
+        <td>696,929</td><td>776,850</td><td>693,699</td><td>681,384</td><td>672,867</td></tr>
+
+      <tr class="row-section"><td colspan="6">Liabilities</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Lease liabilities" data-tip="IFRS 16 lease obligations (current and non-current). FY25 spike to $72.6m reflects the new satellite transmission lease (KoreaSat6). Sky had zero drawn bank debt in FY24 and FY25.">Lease liabilities (total)</span></td>
+        <td>—</td><td>48,700</td><td>49,313</td><td>24,712</td><td>72,600</td></tr>
+      <tr><td class="indent"><span class="tt" data-label="Trade and other payables" data-tip="Amounts owed to content partners, programming rights creditors, advertisers and other suppliers. Contract liabilities (unearned subscriptions) also included here — Sky invoices customers in advance.">Trade, contract and other payables</span></td>
+        <td>—</td><td>135,000</td><td>143,000</td><td>190,000</td><td>152,000</td></tr>
+      <tr class="row-total"><td>Total liabilities</td>
+        <td>272,928</td><td>282,357</td><td>252,919</td><td>232,466</td><td>233,852</td></tr>
+      <tr class="row-total"><td><span class="tt" data-label="Total equity" data-tip="Shareholders funds. Declined from $494m peak (FY22, boosted by asset sales) to $439m (FY25). Share buybacks reduced share capital by ~$34m over the period.">Total equity (net assets)</span></td>
+        <td>424,001</td><td>494,493</td><td>440,780</td><td>448,918</td><td>439,015</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<!-- ══ SKY RATIOS ══ -->
+<div class="tab-pane" id="tab-sky-ratios">
+  <p class="section-title">Key financial ratios</p>
+  <p class="section-note">Derived from statutory figures. Net bank debt is nil in FY24–FY25 (undrawn facility).</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Metric</th><th>FY21</th><th>FY22</th><th>FY23</th><th>FY24</th><th>FY25</th></tr></thead>
+    <tbody>
+      <tr class="row-section"><td colspan="6">Profitability</td></tr>
+      <tr><td><span class="tt" data-label="EBITDA margin" data-tip="Statutory EBITDA as a % of total revenue and income. Structural decline reflects rising programming costs and broadband/infrastructure growth. FY25 adjusted EBITDA margin was 19.7%.">EBITDA margin</span></td>
+        <td class="ratio-good">24.9%</td><td class="ratio-good">22.4%</td><td class="ratio-mid">19.6%</td><td class="ratio-mid">19.9%</td><td class="ratio-bad">15.9%</td></tr>
+      <tr><td><span class="tt" data-label="NPAT margin" data-tip="Statutory NPAT as a % of total revenue. FY25 low reflects satellite migration one-offs. Adjusted NPAT margin would be approximately 5.5% vs 6.4% in FY24.">NPAT margin</span></td>
+        <td>6.6%</td><td>8.3%</td><td>6.7%</td><td>6.4%</td><td>2.7%</td></tr>
+      <tr><td><span class="tt" data-label="Programming cost %" data-tip="Programming costs as a % of revenue. Sky targets 47–49%. Consistently above target, reflecting rights cost inflation and Olympic year impact in FY25. Key strategic metric disclosed in annual guidance.">Programming costs / revenue</span></td>
+        <td class="ratio-bad">46.3%</td><td class="ratio-bad">49.6%</td><td class="ratio-bad">51.3%</td><td class="ratio-bad">51.1%</td><td class="ratio-bad">53.8%</td></tr>
+      <tr><td><span class="tt" data-label="Subscriber costs / revenue" data-tip="Subscriber-related costs as a % of revenue. Improving trend reflects operational efficiency gains in customer care and logistics.">Subscriber costs / revenue</span></td>
+        <td>13.1%</td><td>12.7%</td><td>12.0%</td><td>10.5%</td><td>9.5%</td></tr>
+
+      <tr class="row-section"><td colspan="6">Revenue</td></tr>
+      <tr><td><span class="tt" data-label="Revenue growth" data-tip="Year-on-year change in core operating revenue, excluding other income. FY25 decline reflects lower Sky Box subscriber numbers due to satellite migration disruption, partly offset by broadband and streaming growth.">Revenue growth YoY</span></td>
+        <td class="dim">—</td><td class="ratio-good">+3.5%</td><td class="ratio-good">+2.4%</td><td class="ratio-good">+1.7%</td><td class="ratio-bad">−2.1%</td></tr>
+      <tr><td><span class="tt" data-label="Sky Box revenue %" data-tip="Sky Box (satellite/hybrid subscription) as a % of total revenue. Structural decline as customers shift to streaming, but remains dominant at ~62% of total revenue.">Sky Box revenue %</span></td>
+        <td>—</td><td>—</td><td>—</td><td>65.0%</td><td>62.0%</td></tr>
+
+      <tr class="row-section"><td colspan="6">Balance sheet and leverage</td></tr>
+      <tr><td><span class="tt" data-label="Cash ($m)" data-tip="Cash on hand. Sky also holds an undrawn $100m revolving credit facility. FY22 spike reflects Mt Wellington property sale proceeds.">Cash on hand ($m)</span></td>
+        <td>$34.8m</td><td class="ratio-good">$138.9m</td><td>$56.1m</td><td>$37.8m</td><td>$32.4m</td></tr>
+      <tr><td><span class="tt" data-label="Net bank debt" data-tip="Bank borrowings minus cash. Sky has had no drawn bank debt since FY23, running a net cash position on a bank debt basis. Lease liabilities (IFRS 16) are separate.">Net bank debt / (cash)</span></td>
+        <td>$37.5m</td><td class="ratio-good">(net cash)</td><td class="ratio-good">(net cash)</td><td class="ratio-good">(net cash)</td><td class="ratio-good">(net cash)</td></tr>
+      <tr><td><span class="tt" data-label="Capex / revenue" data-tip="Capital expenditure as a % of revenue. Sky's target range is 7–9%. FY23–FY24 elevated by satellite migration-related capex.">Capex / revenue</span></td>
+        <td>6.3%</td><td>6.1%</td><td>9.4%</td><td>11.6%</td><td>10.3%</td></tr>
+
+      <tr class="row-section"><td colspan="6">Per share</td></tr>
+      <tr><td><span class="tt" data-label="Basic EPS" data-tip="Statutory basic EPS in cents. FY21 elevated by operational recovery; FY25 low due to one-off satellite migration costs. Adjusted EPS (stripping out one-offs) for FY25 was approximately 29.8c.">Basic EPS (cents)</span></td>
+        <td>25.17c</td><td>35.57c</td><td>32.37c</td><td>34.44c</td><td>14.69c</td></tr>
+      <tr><td><span class="tt" data-label="Total dividend (cps)" data-tip="Total dividends declared per share. Sky has grown dividends steadily: 15c (FY23) → 19c (FY24) → 22c (FY25), targeting 30c in FY26. The step-up reflects improving cash conversion and a strong balance sheet.">Total dividend (cps)</span></td>
+        <td>—</td><td>—</td><td>15.0c</td><td>19.0c</td><td>22.0c</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<!-- ══ SKY VALUATION ══ -->
+<div class="tab-pane" id="tab-sky-valuation">
+  <p class="section-title">Market valuation — SKT.NZ</p>
+  <p class="section-note">Year-end share price (30 June close). Shares on issue: 137.7m (FY25). SKT is dual-listed NZX/ASX; prices shown are NZX NZD.</p>
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt-icon" style="margin:0 4px 0 0" id="skyVLive-tip" data-label="Current price" data-tip="Live SKT.NZ share price from Yahoo Finance (15-minute delay), fetched via CORS proxy when the file is opened in a browser.">?</span><span class="tt" data-label="Current price" data-tip="Live SKT.NZ share price from Yahoo Finance (15-minute delay).">Current price</span></div>
+      <div class="kpi-value" id="skyVLive-price">—</div>
+      <div class="kpi-delta" id="skyVLive-change"></div>
+      <div class="kpi-year" id="skyVLive-time">loading…</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Market cap" data-tip="Current price × 137.7m shares on issue.">Market cap (current)</span></div>
+      <div class="kpi-value" id="skyVLive-mcap">—</div>
+      <div class="kpi-year">137.7m shares</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="EV/Adj.EBITDA" data-tip="Enterprise value (market cap + net debt) divided by FY25 Adjusted EBITDA ($148.5m). Uses adjusted figure for comparability.">EV/Adj.EBITDA (current)</span></div>
+      <div class="kpi-value" id="skyVLive-ev">—</div>
+      <div class="kpi-year">Adj. EBITDA $148.5m</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label"><span class="tt" data-label="Trailing P/E" data-tip="Current market cap divided by FY25 adjusted NPAT ($41.1m). Uses adjusted figure as statutory NPAT is distorted by one-off satellite migration costs.">Trailing P/E (adj.)</span></div>
+      <div class="kpi-value" id="skyVLive-pe">—</div>
+      <div class="kpi-year">Adj. NPAT $41.1m</div>
+    </div>
+  </div>
+
+  <div class="chart-grid" style="margin-bottom:24px;">
+    <div class="chart-box" style="grid-column:1/-1;">
+      <div class="chart-title"><span class="tt" data-label="Share price trend" data-tip="Real (unadjusted for dividends) NZX closing price at the end of June each year. Source: Digrin / Yahoo Finance.">Share price — year-end close (NZ$)</span></div>
+      <canvas id="skyChartPrice" style="max-height:160px;"></canvas>
+    </div>
+  </div>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Metric</th><th>FY21</th><th>FY22</th><th>FY23</th><th>FY24</th><th>FY25</th></tr></thead>
+    <tbody>
+      <tr class="row-section"><td colspan="6">Share price and market cap</td></tr>
+      <tr><td><span class="tt" data-label="Year-end close" data-tip="Real (unadjusted) NZX closing price at 30 June. Source: Yahoo Finance.">Year-end close (NZ$)</span></td>
+        <td>$2.00</td><td>$2.40</td><td>$2.27</td><td>$2.36</td><td>$2.99</td></tr>
+      <tr><td>Shares on issue (m)</td><td>187.7</td><td>174.9</td><td>156.9</td><td>142.2*</td><td>137.7</td></tr>
+      <tr><td><span class="tt" data-label="Market cap" data-tip="Year-end share price × shares on issue.">Market cap ($m)</span></td>
+        <td>375.4</td><td>419.8</td><td>356.2</td><td>335.6</td><td>411.6</td></tr>
+      <tr><td><span class="tt" data-label="Net bank debt/(cash)" data-tip="Bank borrowings minus cash. Does not include IFRS 16 lease liabilities. Sky has been net cash since FY23.">Net bank debt/(cash) ($m)</span></td>
+        <td>37.5</td><td class="ratio-good">(67.2)</td><td class="ratio-good">(6.7)</td><td class="ratio-good">(13.1)</td><td class="ratio-good">(32.4)</td></tr>
+      <tr class="row-subtotal"><td class="bold"><span class="tt" data-label="Enterprise value" data-tip="Market cap plus net bank debt (or minus net cash). Excludes IFRS 16 lease liabilities.">Enterprise value ($m)</span></td>
+        <td>412.9</td><td>352.6</td><td>349.5</td><td>322.5</td><td>379.2</td></tr>
+
+      <tr class="row-section"><td colspan="6">Market-based multiples</td></tr>
+      <tr><td><span class="tt" data-label="P/E ratio" data-tip="Market cap / statutory NPAT. FY25 elevated due to one-off costs. Use P/E on adjusted NPAT for FY25: 411.6 / 41.1 = 10.0×.">P/E ratio (statutory)</span></td>
+        <td>7.9×</td><td>6.7×</td><td>7.0×</td><td>6.8×</td><td class="ratio-mid">20.0×</td></tr>
+      <tr><td><span class="tt" data-label="EV / statutory EBITDA" data-tip="Enterprise value / statutory EBITDA. FY25 appears high due to one-off costs in statutory EBITDA. EV/Adj.EBITDA for FY25: 379.2/148.5 = 2.6×.">EV / statutory EBITDA</span></td>
+        <td class="ratio-good">2.3×</td><td class="ratio-good">2.1×</td><td class="ratio-good">2.4×</td><td class="ratio-good">2.1×</td><td class="ratio-mid">3.1×</td></tr>
+      <tr><td><span class="tt" data-label="EV / Adj. EBITDA" data-tip="Enterprise value / management Adjusted EBITDA (non-GAAP, excl. one-offs). The most comparable multiple.">EV / Adjusted EBITDA</span></td>
+        <td class="dim">—</td><td class="dim">—</td><td class="dim">—</td><td class="ratio-good">2.1×</td><td class="ratio-good">2.6×</td></tr>
+      <tr><td><span class="tt" data-label="Price / book" data-tip="Market cap / total equity. Below 1.0× means market values the company at less than book value — unusual for a company with significant goodwill and brand value.">Price / book value</span></td>
+        <td>0.89×</td><td>0.85×</td><td>0.81×</td><td>0.75×</td><td>0.94×</td></tr>
+      <tr><td><span class="tt" data-label="Dividend yield" data-tip="Total dividends / year-end share price. Rising yields reflect growing dividend distributions plus share price lagging.">Dividend yield (at year-end)</span></td>
+        <td class="dim">—</td><td class="dim">—</td><td>6.6%</td><td>8.1%</td><td>7.4%</td></tr>
+      <tr><td><span class="tt" data-label="Price change YoY" data-tip="Year-on-year change in June 30 closing price.">Share price change YoY</span></td>
+        <td class="dim">—</td><td class="ratio-good">+20%</td><td class="ratio-bad">−5%</td><td class="ratio-good">+4%</td><td class="ratio-good">+27%</td></tr>
+      <tr><td colspan="6" class="source-note">Year-end prices sourced from Yahoo Finance. * FY24 weighted average shares used for EPS. FY25 shares: 137,675,010.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="footnotes">
+    <strong>Note:</strong> Sky TV's EV/EBITDA multiples (2.1–3.1×) are exceptionally low by global pay-TV standards, reflecting market concern about subscriber loss from satellite cord-cutting. The balance sheet strength (no drawn bank debt, growing dividends) provides a floor. FY25 P/E on adjusted NPAT is ~10×, more representative than the statutory 20×.
+  </div>
+</div>
+
+
+<!-- ══ SKY CORPORATE TAB ══ -->
+<div class="tab-pane" id="tab-sky-corporate">
+  <p class="section-title">Corporate information</p>
+  <p class="section-note">Source: NZX company file, updated 17 March 2026.</p>
+
+  <div class="corp-grid">
+    <div class="corp-box">
+      <div class="corp-box-title">Company details</div>
+      <table>
+        <tr><td>NZX code</td><td>SKT (also ASX: SKT)</td></tr>
+        <tr><td>First listed</td><td>28 June 2005</td></tr>
+        <tr><td>Balance date</td><td>30 June</td></tr>
+        <tr><td>Shares on issue</td><td>137,675,010</td></tr>
+        <tr><td>Chair</td><td>Philip Bowman (Independent)</td></tr>
+        <tr><td>CEO</td><td>Sophie Moloney</td></tr>
+        <tr><td>CFO</td><td>David Mackrell</td></tr>
+        <tr><td>Auditors</td><td>PricewaterhouseCoopers, Auckland</td></tr>
+        <tr><td>Legal</td><td>Chapman Tripp, Auckland</td></tr>
+        <tr><td>Registry</td><td>Computershare Investor Services</td></tr>
+        <tr><td>Last AGM</td><td>21 November 2025</td></tr>
+      </table>
+    </div>
+
+    <div class="corp-box">
+      <div class="corp-box-title">Recent dividends</div>
+      <table>
+        <thead><tr>
+          <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Period</td>
+          <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Amount</td>
+          <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Imputation</td>
+          <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Pay date</td>
+        </tr></thead>
+        <tr><td>FY25 interim</td><td>8.5c</td><td>3.306c</td><td>21 Mar 2025</td></tr>
+        <tr><td>FY25 final</td><td>13.5c</td><td>5.250c</td><td>19 Sep 2025</td></tr>
+        <tr><td>FY26 interim</td><td>15.0c</td><td>5.833c</td><td>27 Mar 2026</td></tr>
+        <tr><td colspan="4" style="font-size:11px;color:var(--ink-light);font-style:italic;">FY25 total: 22.0c. FY26 interim of 15.0c represents +76.5% YoY. Full-year FY26 guidance: 30.0c.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="corp-box" style="margin-bottom:20px;">
+    <div class="corp-box-title">Substantial security holders <span style="font-weight:400;text-transform:none;font-size:10px;"> — latest NZX disclosure per holder</span></div>
+    <table>
+      <thead><tr>
+        <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Holder</td>
+        <td style="font-weight:700;font-size:11px;color:var(--ink-mid);">Disclosure date</td>
+        <td style="font-weight:700;font-size:11px;color:var(--ink-mid);text-align:right;">Shares held</td>
+        <td style="font-weight:700;font-size:11px;color:var(--ink-mid);text-align:right;">% current est.</td>
+      </tr></thead>
+      <tr><td>Accident Compensation Corporation</td><td>03 Dec 2024</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">14,543,637</td><td style="text-align:right;font-weight:600;">10.56%</td></tr>
+      <tr><td>NZ Superannuation Fund</td><td>12 Feb 2026</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">13,526,006</td><td style="text-align:right;font-weight:600;">9.83%</td></tr>
+      <tr><td>FirstCape Group Limited</td><td>21 Oct 2025</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">7,946,751</td><td style="text-align:right;font-weight:600;">5.77%</td></tr>
+      <tr><td>Investment Services Group Limited</td><td>09 Feb 2026</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">7,026,157</td><td style="text-align:right;font-weight:600;">5.10%</td></tr>
+      <tr><td>Jupiter Asset Management</td><td>18 Mar 2024</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">7,030,500</td><td style="text-align:right;font-weight:600;">4.98%*</td></tr>
+      <tr><td colspan="4" style="font-size:11px;color:var(--ink-light);font-style:italic;">% current est. = shares held at disclosure / 137,675,010. * May have changed since 2024 disclosure.</td></tr>
+    </table>
+  </div>
+
+  <div class="corp-box">
+    <div class="corp-box-title">Board of directors &amp; principals</div>
+    <table>
+      <tr><td>Philip Bowman</td><td>Independent Chairman</td></tr>
+      <tr><td>Sophie Moloney</td><td>Chief Executive Officer (300,361 shares)</td></tr>
+      <tr><td>David Mackrell</td><td>Chief Financial Officer</td></tr>
+      <tr><td>Keith Smith</td><td>Independent Director &amp; Deputy Chair</td></tr>
+      <tr><td>Dame Joan Withers</td><td>Independent Director</td></tr>
+      <tr><td>Mike Darcey</td><td>Independent Director (1,500,000 shares)</td></tr>
+      <tr><td>Mark Buckman</td><td>Independent Director</td></tr>
+      <tr><td>Belinda Rowe</td><td>Independent Director</td></tr>
+      <tr><td>Kirstin Jones</td><td>Company Secretary</td></tr>
+    </table>
+  </div>
+</div>
+
+</div><!-- /sky main -->
+</div><!-- /co-sky -->
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- COMPARE SECTION                                                -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="co-section" id="co-compare">
+<div class="main">
+<div class="summary-panel compare">
+  <div class="summary-body">
+    <div class="summary-headline">NZME vs Sky TV — NZ media sector comparison</div>
+    <p>NZME and Sky TV are the two largest independent media companies listed on the NZX, with a combined market capitalisation of ~$630m and combined revenue of ~$1.1 billion. Both are navigating the same macro environment — a prolonged New Zealand advertising and consumer spending slowdown — but face structurally different challenges: NZME is managing the transition from print to digital publishing and audio; Sky is managing the shift from satellite to streaming delivery.</p>
+    <p>Both companies are generating strong free cash flow relative to market cap, carrying conservative balance sheets (minimal bank debt) and paying above-market dividend yields. Sky's most recent half-year result (HY26, to Dec 2025) showed underlying EBITDA +29% and the FY26 interim dividend up 76.5% to 15 cents — 30 cents guided for the full year. NZME's single broker FY2026 consensus forecasts EBITDA of $66.5m (+6.7%) with dividends flat at 9 cents. On EV/EBITDA both trade at significant discounts to global media peers (typically 5–10×), reflecting NZ market size constraints and structural concerns specific to each business. Sky is cheaper on this metric (~2.6×) than NZME (~3.8×), but carries more balance sheet risk through $244m of goodwill and large programming cost commitments. NZME's risk is more gradual — continued print and advertising decline — with less downside concentration.</p>
+    <p><strong>Note on comparability:</strong> NZME reports on a December year-end; Sky TV on a June year-end. The figures shown represent each company's most recently completed full financial year, covering different 12-month periods. Both use non-GAAP operating metrics that exclude non-recurring items — NZME's "Operating EBITDA" and Sky's "Adjusted EBITDA" are the primary management metrics for each.</p>
+  </div>
+  <div class="summary-tags">
+    <span class="summary-tag tag-grey">2 companies</span>
+    <span class="summary-tag tag-grey">NZX listed</span>
+    <span class="summary-tag tag-amber">Both −1–2% revenue</span>
+    <span class="summary-tag tag-blue">Yields 7–8%</span>
+    <span class="summary-tag tag-green">Low leverage</span>
+    <span class="summary-tag tag-grey">Below global peers</span>
+  </div>
+</div>
+  <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:24px;">
+    <p class="section-title" style="margin:0;border:0;">Side-by-side comparison</p>
+    <span style="font-size:11px;color:var(--ink-light);">NZME (Dec year-end) vs Sky TV (Jun year-end) · NZD $000 · most recent comparable years</span>
+  </div>
+
+  <!-- Overview comparison KPIs -->
+  <div style="display:grid;grid-template-columns:1fr 40px 1fr;gap:0;margin-bottom:28px;background:var(--white);border:1px solid var(--rule);border-radius:3px;overflow:hidden;">
+    <div style="padding:14px 20px;background:#f7f9fc;">
+      <div style="font-size:10px;font-weight:700;color:var(--bd-blue);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">NZM.NZ · NZME · FY2025 (Dec)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Revenue</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">$341m</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Op. EBITDA</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">$62.3m</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">EBITDA margin</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">18.1%</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Statutory NPAT</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">$13.1m</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">EPS (basic)</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">6.96c</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Dividend</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">9.0c</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Div yield</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">~7.8%</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Net debt</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">$15.5m</div></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;background:#f0f2f6;font-size:18px;color:var(--ink-light);">⇌</div>
+    <div style="padding:14px 20px;background:#f0f6fc;">
+      <div style="font-size:10px;font-weight:700;color:#1a56b0;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">SKT.NZ · Sky TV · FY2025 (Jun)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Revenue</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">$751m</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Adj. EBITDA</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">$148.5m</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Adj. EBITDA margin</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">19.7%</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Statutory NPAT</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">$20.6m</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">EPS (basic)</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">14.69c</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Dividend</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">22.0c</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Div yield</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">~7.4%</div></div>
+        <div><div style="font-size:10px;color:var(--ink-light);margin-bottom:2px;">Net bank debt</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;">nil</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comparison charts -->
+  <div class="chart-grid" style="grid-template-columns:1fr 1fr;margin-bottom:28px;">
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="EBITDA margin comparison" data-tip="Operating EBITDA margin over 5 years for each company. NZME uses management non-GAAP Operating EBITDA / Operating Revenue. SKY uses adjusted EBITDA / revenue for most recent 2 years; statutory for earlier years. Different year-ends: NZME Dec, SKY Jun.">EBITDA margin — 5 years (%)</span></div>
+      <canvas id="cmpChartMargin"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="Revenue trend (indexed)" data-tip="Revenue indexed to 100 at the earliest comparable year (NZME 2021 Dec / SKY FY21 Jun). Shows relative revenue trajectory — SKY has grown then declined; NZME broadly flat.">Revenue trend (indexed to 100)</span></div>
+      <canvas id="cmpChartRevIdx"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="Dividend per share" data-tip="Total annual dividends per share (cents). SKY dividend has grown faster recently as the company prioritises shareholder returns from strong cash flows. Both companies have above-market NZX yields (~7-8%).">Dividend per share (cents)</span></div>
+      <canvas id="cmpChartDiv"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><span class="tt" data-label="EV/EBITDA comparison" data-tip="Enterprise value / EBITDA at year-end prices. NZME uses Op. EBITDA; SKY uses Adj. EBITDA where available, statutory otherwise. Both trade at very low multiples vs global media peers.">EV / EBITDA (×) at year-end</span></div>
+      <canvas id="cmpChartEV"></canvas>
+    </div>
+  </div>
+
+  <!-- Comparison table -->
+  <p class="section-title">Head-to-head metrics — most recent year</p>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th>Metric</th>
+      <th style="color:var(--bd-blue);">NZME (2025)</th>
+      <th style="color:#1a56b0;">Sky TV (FY25)</th>
+      <th>Notes</th>
+    </tr></thead>
+    <tbody>
+      <tr class="row-section"><td colspan="4">Scale</td></tr>
+      <tr><td>Revenue</td><td>$341m</td><td>$751m</td><td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Sky is ~2.2× NZME by revenue</td></tr>
+      <tr><td>Year-end</td><td>31 December</td><td>30 June</td><td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Different reporting periods</td></tr>
+      <tr><td>Market cap (approx.)</td><td>~$218m</td><td>~$412m</td><td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Sky ~1.9× NZME by mkt cap</td></tr>
+      <tr><td>Shares on issue</td><td>~188m</td><td>137.7m</td><td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">NZME has more shares outstanding</td></tr>
+
+      <tr class="row-section"><td colspan="4">Profitability</td></tr>
+      <tr><td><span class="tt" data-label="Op. EBITDA margin" data-tip="Management non-GAAP Operating EBITDA margin for each company. NZME: Op.EBITDA / Op.Revenue. Sky TV: Adj.EBITDA / Revenue.">Op./Adj. EBITDA margin</span></td>
+        <td class="ratio-good">18.1%</td><td class="ratio-mid">19.7%</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Sky higher; both recovering</td></tr>
+      <tr><td>Statutory NPAT margin</td><td>3.8%</td><td>2.7%</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">NZME higher on statutory basis</td></tr>
+      <tr><td>Revenue growth (latest year)</td><td class="ratio-bad">−1.3%</td><td class="ratio-bad">−2.1%</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Both facing soft conditions</td></tr>
+
+      <tr class="row-section"><td colspan="4">Returns to shareholders</td></tr>
+      <tr><td>EPS (statutory, cents)</td><td>6.96c</td><td>14.69c</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Sky statutory depressed by one-offs</td></tr>
+      <tr><td>Dividend (cents per share)</td><td>9.0c</td><td>22.0c</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Sky dividend growing faster</td></tr>
+      <tr><td>Dividend yield (approx.)</td><td>~7.8%</td><td>~7.4%</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Both high-yield NZX stocks</td></tr>
+
+      <tr class="row-section"><td colspan="4">Balance sheet</td></tr>
+      <tr><td>Net debt (bank, excl. leases)</td><td>$15.5m</td><td>nil</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Both conservatively geared</td></tr>
+      <tr><td>Net debt / EBITDA</td><td>0.25×</td><td>net cash</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Both well below 1.0×</td></tr>
+      <tr><td>Total equity</td><td>$97.9m</td><td>$439.0m</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Sky has $244m goodwill; NZME has mastheads</td></tr>
+
+      <tr class="row-section"><td colspan="4">Valuation multiples</td></tr>
+      <tr><td><span class="tt" data-label="EV/EBITDA" data-tip="Enterprise value / operating EBITDA at most recent year-end prices. Both are at the low end of global media comparables.">EV / Op./Adj. EBITDA</span></td>
+        <td>~3.8×</td><td>~2.6×</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Sky cheaper on this metric</td></tr>
+      <tr><td>P/E (adj./operating earnings)</td><td>~12–13×</td><td>~10×</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Sky cheaper on adj. P/E</td></tr>
+      <tr><td>Price / book value</td><td>2.23×</td><td>0.94×</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">NZME market values cash flows; Sky near book</td></tr>
+      <tr><td>Mcap / revenue</td><td>0.64×</td><td>0.55×</td>
+        <td class="dim" style="font-family:'Inter',sans-serif;font-size:11px;">Both well below 1.0×</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="footnotes">
+    <strong>Comparability notes:</strong> NZME has a December year-end; Sky TV has a June year-end — a 6-month offset meaning the most recent full-year results cover different economic periods.
+    NZME's non-GAAP metric is "Operating EBITDA" (excl. non-recurring items, incl. IFRS 16). Sky's non-GAAP is "Adjusted EBITDA" (excl. satellite migration costs and one-offs, incl. IFRS 16).
+    Both companies have large IFRS 16 right-of-use lease liabilities excluded from net debt calculations above.
+    Sky's goodwill ($244m) is a larger proportion of equity than NZME's intangibles — goodwill impairment is a material risk for Sky if subscriber trends deteriorate.
+    Both companies face structural headwinds: NZME from print/advertising decline; Sky from satellite cord-cutting. Digital transition is central to both strategies.
+  </div>
+</div><!-- /compare main -->
+</div><!-- /co-compare -->
+
+<script>
+// ── Company switcher ──────────────────────────────────────────────
+function switchCo(co, btn) {
+  document.querySelectorAll('.co-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.co-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('co-' + co).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Sky tab switcher ──────────────────────────────────────────────
+function showSkyTab(id) {
+  const nav = document.getElementById('sky-tab-nav');
+  nav.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#co-sky .tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── SKY Charts ─────────────────────────────────────────────────────
+const SKY_YEARS = ['FY21','FY22','FY23','FY24','FY25'];
+const SKY_BLUE = '#1a56b0';
+const AMBER = '#f59e0b';
+
+new Chart(document.getElementById('skyChartRevEbitda'), {
+  type: 'bar',
+  data: {
+    labels: SKY_YEARS,
+    datasets: [
+      { label: 'Revenue ($m)', data: [711.2, 736.1, 754.1, 766.7, 750.7],
+        backgroundColor: 'rgba(26,86,176,0.18)', borderColor: SKY_BLUE, borderWidth: 1.5, yAxisID: 'yRev', order: 2 },
+      { label: 'Adj. EBITDA ($m)', data: [180.4, 169.0, 148.7, 153.0, 148.5],
+        type: 'line', borderColor: AMBER, backgroundColor: 'rgba(245,158,11,0.08)', borderWidth: 2,
+        pointRadius: 4, pointBackgroundColor: AMBER, fill: false, yAxisID: 'yE', order: 1 }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 10 } } } },
+    scales: {
+      x: { grid: { color: '#e2e5ec' } },
+      yRev: { position: 'left', min: 650, grid: { color: '#e2e5ec' }, ticks: { font: { size: 10 } } },
+      yE: { position: 'right', min: 80, max: 220, grid: { drawOnChartArea: false }, ticks: { font: { size: 10 } } }
+    }
+  }
+});
+
+new Chart(document.getElementById('skyChartMargins'), {
+  type: 'line',
+  data: {
+    labels: SKY_YEARS,
+    datasets: [
+      { label: 'Statutory EBITDA margin', data: [24.9, 22.4, 19.6, 19.9, 15.9],
+        borderColor: SKY_BLUE, backgroundColor: 'rgba(26,86,176,0.08)', borderWidth: 2, pointRadius: 4, fill: true },
+      { label: 'Adj. EBITDA margin', data: [null, null, null, 20.0, 19.7],
+        borderColor: AMBER, borderDash: [5,3], borderWidth: 1.5, pointRadius: 4, pointBackgroundColor: AMBER, fill: false }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size: 10 } } } },
+    scales: { x: { grid: { color: '#e2e5ec' } }, y: { grid: { color: '#e2e5ec' }, ticks: { callback: v => v+'%' }, min: 10, max: 30 } }
+  }
+});
+
+new Chart(document.getElementById('skyChartCash'), {
+  type: 'bar',
+  data: {
+    labels: SKY_YEARS,
+    datasets: [{ label: 'Cash ($m)', data: [34.8, 138.9, 56.1, 37.8, 32.4],
+      backgroundColor: ['rgba(26,86,176,0.4)','rgba(10,124,75,0.5)','rgba(26,86,176,0.4)','rgba(26,86,176,0.4)','rgba(26,86,176,0.4)'],
+      borderColor: [SKY_BLUE, '#0a7c4b', SKY_BLUE, SKY_BLUE, SKY_BLUE], borderWidth: 1.5
+    }]
+  },
+  options: { responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { display: false } },
+    scales: { x: { grid: { color: '#e2e5ec' } }, y: { grid: { color: '#e2e5ec' }, ticks: { callback: v => '$'+v+'m' } } }
+  }
+});
+
+new Chart(document.getElementById('skyChartEPS'), {
+  type: 'line',
+  data: {
+    labels: SKY_YEARS,
+    datasets: [
+      { label: 'Statutory EPS (cents)', data: [25.17, 35.57, 32.37, 34.44, 14.69],
+        borderColor: '#111318', backgroundColor: 'rgba(17,19,24,0.06)', borderWidth: 2, pointRadius: 4, fill: true },
+      { label: 'Total dividend (cents)', data: [null, null, 15.0, 19.0, 22.0],
+        borderColor: AMBER, borderDash: [5,3], borderWidth: 1.5, pointRadius: 4, pointBackgroundColor: AMBER, fill: false }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size: 10 } } } },
+    scales: { x: { grid: { color: '#e2e5ec' } }, y: { grid: { color: '#e2e5ec' }, ticks: { callback: v => v+'c' } } }
+  }
+});
+
+new Chart(document.getElementById('skyChartPrice'), {
+  type: 'line',
+  data: {
+    labels: SKY_YEARS,
+    datasets: [{ label: 'Year-end close (NZ$)', data: [2.00, 2.40, 2.27, 2.36, 2.99],
+      borderColor: SKY_BLUE, backgroundColor: 'rgba(26,86,176,0.10)', borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: SKY_BLUE, fill: true
+    }]
+  },
+  options: { responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { display: false } },
+    scales: { x: { grid: { color: '#e2e5ec' } }, y: { grid: { color: '#e2e5ec' }, ticks: { callback: v => '$'+v.toFixed(2) }, min: 1.5 } }
+  }
+});
+
+// ── Comparison charts ──────────────────────────────────────────────
+const CMP_LABELS = ['Yr1','Yr2','Yr3','Yr4','Yr5'];
+new Chart(document.getElementById('cmpChartMargin'), {
+  type: 'line',
+  data: {
+    labels: ['2021','2022','2023','2024','2025'],
+    datasets: [
+      { label: 'NZME Op. EBITDA margin', data: [18.9, 17.7, 16.2, 15.5, 18.1],
+        borderColor: '#42a2dc', backgroundColor: 'rgba(66,162,220,0.08)', borderWidth: 2.5, pointRadius: 4, fill: false },
+      { label: 'Sky TV EBITDA margin', data: [24.9, 22.4, 19.6, 19.9, 15.9],
+        borderColor: SKY_BLUE, backgroundColor: 'rgba(26,86,176,0.06)', borderWidth: 2.5, pointRadius: 4, borderDash: [5,3], fill: false },
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size: 10 } } } },
+    scales: { x: { grid: { color: '#e2e5ec' }, title: { display: true, text: 'NZME: calendar year · SKY: June year', font: { size: 9 } } },
+      y: { grid: { color: '#e2e5ec' }, ticks: { callback: v => v+'%' }, min: 10, max: 30 } }
+  }
+});
+
+new Chart(document.getElementById('cmpChartRevIdx'), {
+  type: 'line',
+  data: {
+    labels: ['Yr1','Yr2','Yr3','Yr4','Yr5'],
+    datasets: [
+      { label: 'NZME revenue (idx)', data: [100, 101.7, 97.6, 99.1, 97.8],
+        borderColor: '#42a2dc', borderWidth: 2.5, pointRadius: 4, fill: false },
+      { label: 'Sky TV revenue (idx)', data: [100, 103.5, 106.0, 107.8, 105.6],
+        borderColor: SKY_BLUE, borderWidth: 2.5, pointRadius: 4, borderDash: [5,3], fill: false },
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size: 10 } } },
+      tooltip: { callbacks: { title: ctx => ['NZME: 2021–2025 (Dec)','SKY: FY21–FY25 (Jun)'][0] } } },
+    scales: { x: { grid: { color: '#e2e5ec' }, title: { display: true, text: 'Year 1 = 2021 for each company (different periods)', font: { size: 9 } } },
+      y: { grid: { color: '#e2e5ec' }, ticks: { callback: v => v }, min: 90, max: 115 } }
+  }
+});
+
+new Chart(document.getElementById('cmpChartDiv'), {
+  type: 'bar',
+  data: {
+    labels: ['2021','2022','2023','2024','2025'],
+    datasets: [
+      { label: 'NZME (cps)', data: [5.0, 6.0, 6.0, 9.0, 9.0],
+        backgroundColor: 'rgba(66,162,220,0.7)', borderWidth: 0 },
+      { label: 'Sky TV (cps)', data: [null, null, 15.0, 19.0, 22.0],
+        backgroundColor: 'rgba(26,86,176,0.7)', borderWidth: 0 },
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size: 10 } } } },
+    scales: { x: { grid: { color: '#e2e5ec' }, title: { display: true, text: 'NZME: calendar year · SKY: June year', font: { size: 9 } } },
+      y: { grid: { color: '#e2e5ec' }, ticks: { callback: v => v+'c' } } }
+  }
+});
+
+new Chart(document.getElementById('cmpChartEV'), {
+  type: 'line',
+  data: {
+    labels: ['2021','2022','2023','2024','2025'],
+    datasets: [
+      { label: 'NZME EV/Op.EBITDA', data: [4.1, 3.7, 3.9, 4.1, 3.8],
+        borderColor: '#42a2dc', borderWidth: 2.5, pointRadius: 4, fill: false },
+      { label: 'Sky TV EV/EBITDA', data: [2.3, 2.1, 2.4, 2.1, 2.6],
+        borderColor: SKY_BLUE, borderWidth: 2.5, pointRadius: 4, borderDash: [5,3], fill: false },
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size: 10 } } } },
+    scales: { x: { grid: { color: '#e2e5ec' } },
+      y: { grid: { color: '#e2e5ec' }, ticks: { callback: v => v+'×' }, min: 1, max: 6 } }
+  }
+});
+
+// ── Sky live price ──────────────────────────────────────────────────
+async function fetchSkyLivePrice() {
+  const SHARES = 137.675; // m
+  const ADJ_EBITDA = 148.5; // $m
+  const ADJ_NPAT = 41.1; // $m
+  const apiUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/SKT.NZ?interval=1d&range=5d';
+  const proxies = [
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  ];
+  for (const proxy of proxies) {
+    try {
+      const resp = await fetch(proxy(apiUrl), { signal: AbortSignal.timeout(8000) });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (!meta?.regularMarketPrice) continue;
+      const price = meta.regularMarketPrice;
+      const prevClose = meta.chartPreviousClose || meta.previousClose || price;
+      const change = price - prevClose;
+      const changePct = (change / prevClose) * 100;
+      const mcap = (price * SHARES).toFixed(1);
+      const ev = (price * SHARES).toFixed(1); // no bank debt
+      const evEbitda = ((price * SHARES) / ADJ_EBITDA).toFixed(1);
+      const pe = ((price * SHARES) / ADJ_NPAT).toFixed(1);
+      const arrow = change >= 0 ? '▲' : '▼';
+      const cls = change >= 0 ? 'up' : 'down';
+      document.getElementById('skyLivePrice').textContent = `SKT.NZ $${price.toFixed(2)}`;
+      document.getElementById('skyLivePriceChange').textContent = `${arrow} ${Math.abs(changePct).toFixed(2)}%`;
+      document.getElementById('skyLivePriceChange').className = `kpi-delta ${cls}`;
+      document.getElementById('skyLivePriceStatus').textContent = '(15min delay)';
+      document.getElementById('skyVLive-price').textContent = `$${price.toFixed(2)}`;
+      document.getElementById('skyVLive-price').className = `kpi-value${change < 0 ? ' negative' : ''}`;
+      document.getElementById('skyVLive-change').textContent = `${arrow} ${change >= 0 ? '+' : ''}${change.toFixed(3)} (${changePct.toFixed(2)}%)`;
+      document.getElementById('skyVLive-change').className = `kpi-delta ${cls}`;
+      document.getElementById('skyVLive-time').textContent = 'vs prev close';
+      document.getElementById('skyVLive-mcap').textContent = `$${mcap}m`;
+      document.getElementById('skyVLive-ev').textContent = `${evEbitda}×`;
+      document.getElementById('skyVLive-pe').textContent = `${pe}×`;
+      return;
+    } catch(e) { continue; }
+  }
+  document.getElementById('skyLivePriceStatus').textContent = '(open in browser)';
+  document.getElementById('skyLivePrice').textContent = 'SKT.NZ';
+}
+fetchSkyLivePrice();
+</script>
+
+</body>
+</html>
