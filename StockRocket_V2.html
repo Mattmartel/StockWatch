@@ -1,0 +1,2287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Portfolio Monitor</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%232563eb;stop-opacity:1'/%3E%3Cstop offset='100%25' style='stop-color:%2310b981;stop-opacity:1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' d='M50 10 L65 35 L90 40 L70 60 L75 85 L50 72 L25 85 L30 60 L10 40 L35 35 Z'/%3E%3Cpath fill='white' d='M50 30 L50 55 M38 50 L62 50' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #f5f5f5;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #e5e5e5;
+      --border-color: #d4d4d4;
+      --text-primary: #0a0a0a;
+      --text-secondary: #525252;
+      --text-muted: #737373;
+      --green: #16a34a;
+      --green-bg: #f0fdf4;
+      --green-dark: #15803d;
+      --red: #dc2626;
+      --red-bg: #fff1f1;
+      --red-dark: #b91c1c;
+    }
+    body {
+      background: #f5f5f5;
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .card-compact {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.875rem;
+    }
+    .stat-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.875rem;
+    }
+    .gain { color: var(--green); }
+    .loss { color: var(--red); }
+    .btn-primary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .btn-primary:hover {
+      background: var(--bg-secondary);
+      border-color: var(--text-secondary);
+    }
+    .btn-primary.active {
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      border-color: var(--text-primary);
+    }
+    input, select {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+    }
+    input::placeholder {
+      color: var(--text-muted);
+    }
+    h1, h2, h3 {
+      color: var(--text-primary);
+      font-weight: 600;
+      letter-spacing: -0.025em;
+    }
+    .metric-lg {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.05em;
+    }
+    .metric-md {
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .label {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+    .divider {
+      border-top: 1px solid var(--border-color);
+      margin: 1rem 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="min-h-screen p-4 md:p-6">
+    <div class="max-w-7xl mx-auto">
+      <div class="mb-4 flex justify-between items-center flex-wrap gap-3">
+        <div class="flex items-center gap-3">
+          <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#22c55e;stop-opacity:1"/>
+                <stop offset="100%" style="stop-color:#10b981;stop-opacity:1"/>
+              </linearGradient>
+            </defs>
+            <path fill="url(#logoGrad)" d="M50 10 L65 35 L90 40 L70 60 L75 85 L50 72 L25 85 L30 60 L10 40 L35 35 Z"/>
+            <path fill="white" d="M50 30 L50 55 M38 50 L62 50" stroke="white" stroke-width="4" stroke-linecap="round"/>
+          </svg>
+          <div>
+            <h1 style="font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; margin: 0;">Portfolio Monitor</h1>
+            <p id="lastUpdatedText" style="font-size: 0.75rem; color: var(--text-muted); margin: 0;"></p>
+          </div>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+          <select id="priceSourceSelect" style="background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem;">
+            <option value="sheets">Google Sheets</option>
+            <option value="yahoo">Yahoo Finance</option>
+          </select>
+          <button id="updatePricesBtn" class="btn-primary" style="background: var(--green); color: white; border-color: var(--green);">Update Prices</button>
+          <button id="settingsBtn" class="btn-primary">Setup</button>
+        </div>
+      </div>
+      <div id="content" class="card" style="text-align: center; padding: 3rem;">
+        <p style="color: var(--text-secondary);">Click Setup to connect Google Sheets</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="settingsModal" class="hidden fixed inset-0 flex items-center justify-center p-4 z-50" style="background: rgba(0,0,0,0.8);">
+    <div class="card" style="max-width: 32rem; width: 100%; max-height: 90vh; overflow-y: auto;">
+      <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem;">Google Sheets Setup</h3>
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <div>
+          <label class="label" style="display: block; margin-bottom: 0.5rem;">Google Sheets URL</label>
+          <input id="sheetsUrl" type="text" placeholder="https://docs.google.com/spreadsheets/d/..." style="width: 100%;" />
+        </div>
+        <div>
+          <label class="label" style="display: block; margin-bottom: 0.5rem;">Google API Key</label>
+          <input id="apiKey" type="text" placeholder="AIzaSy..." style="width: 100%;" />
+        </div>
+        <div>
+          <label class="label" style="display: block; margin-bottom: 0.5rem;">Sheet Name</label>
+          <input id="sheetName" type="text" value="Sheet1" style="width: 100%;" />
+        </div>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <button id="saveBtn" class="btn-primary" style="flex: 1; background: var(--green); color: white; border-color: var(--green);">Save</button>
+          <button id="cancelBtn" class="btn-primary" style="flex: 1;">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configure Chart.js defaults for light theme
+    Chart.defaults.color = '#525252';
+    Chart.defaults.borderColor = '#d4d4d4';
+    Chart.defaults.backgroundColor = 'rgba(115, 115, 115, 0.1)';
+    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    Chart.defaults.plugins.legend.labels.color = '#0a0a0a';
+    Chart.defaults.plugins.tooltip.backgroundColor = '#ffffff';
+    Chart.defaults.plugins.tooltip.titleColor = '#0a0a0a';
+    Chart.defaults.plugins.tooltip.bodyColor = '#0a0a0a';
+    Chart.defaults.plugins.tooltip.borderColor = '#d4d4d4';
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+    Chart.defaults.scale.grid.color = '#e5e5e5';
+    Chart.defaults.scale.grid.lineWidth = 1;
+    Chart.defaults.scale.ticks.color = '#525252';
+
+    let portfolioData = [];
+    let soldHoldingsData = [];
+    let SHEET_ID = localStorage.getItem('sheetId') || '';
+    let API_KEY = localStorage.getItem('apiKey') || '';
+    let SHEET_NAME = localStorage.getItem('sheetName') || 'Sheet1';
+    let SOLD_SHEET_NAME = 'Sold Holdings';
+    let charts = {};
+    let stockCharts = {};
+    let sortBy = 'gainValue';
+    let gainLossPeriod = 'day';
+    let fifFilter = 'all';
+    let locationFilter = 'all';
+    let priceSource = localStorage.getItem('priceSource') || 'sheets';
+    let lastRefreshTime = 0;
+    const REFRESH_COOLDOWN = 60000;
+    let exchangeRates = { AUDNZD: 1.0, USDNZD: 1.0 };
+    let activeView = 'dashboard';
+    let tableMetric = 'dollar';
+    let tableSortBy = 'day';
+    let stockAlerts = JSON.parse(localStorage.getItem('stockAlerts') || '{}');
+    let dismissedAlerts = JSON.parse(localStorage.getItem('dismissedAlerts') || '{}');
+    let benchmarkData = { NZX50: {}, ASX200: {}, SP500: {} };
+
+    function calculateVolatility(prices) {
+      if (prices.length < 2) return 0;
+      const returns = [];
+      for (let i = 1; i < prices.length; i++) {
+        if (prices[i-1] > 0 && prices[i] > 0) {
+          returns.push((prices[i] - prices[i-1]) / prices[i-1]);
+        }
+      }
+      if (returns.length < 2) return 0;
+      const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+      const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / returns.length;
+      return Math.sqrt(variance) * Math.sqrt(252) * 100; // Annualized volatility as %
+    }
+
+    function calculateReturn(startPrice, endPrice) {
+      if (startPrice <= 0 || endPrice <= 0) return 0;
+      return ((endPrice - startPrice) / startPrice) * 100;
+    }
+
+    function getStockPrices(stock, days) {
+      const prices = [cleanPrice(stock['Current Price'])];
+      for (let i = 1; i <= days; i++) {
+        const p = cleanPrice(stock['Day-' + i]);
+        if (p > 0) prices.unshift(p);
+      }
+      return prices;
+    }
+
+    function saveCachedData(data) {
+      localStorage.setItem('portfolioCache', JSON.stringify({ data: data, timestamp: Date.now() }));
+    }
+
+    function getCachedData() {
+      const cached = localStorage.getItem('portfolioCache');
+      return cached ? JSON.parse(cached) : null;
+    }
+
+    function saveAlerts() {
+      localStorage.setItem('stockAlerts', JSON.stringify(stockAlerts));
+    }
+
+    function saveDismissedAlerts() {
+      localStorage.setItem('dismissedAlerts', JSON.stringify(dismissedAlerts));
+    }
+
+    function setPriceSource(source) {
+      priceSource = source;
+      localStorage.setItem('priceSource', source);
+      document.getElementById('updatePricesBtn').style.display = source === 'yahoo' ? 'block' : 'none';
+      render();
+    }
+
+    function normalizeTickerForYahoo(ticker) {
+      if (!ticker) return '';
+      let t = ticker.trim().toUpperCase();
+      if (t.startsWith('NZE:')) return t.replace('NZE:', '') + '.NZ';
+      if (t.startsWith('ASX:')) return t.replace('ASX:', '') + '.AX';
+      return ticker;
+    }
+
+    async function fetchYahooData(ticker, range = '15d', historicalDays = 8) {
+      // Build attempt list: each entry is [proxyPrefix, yahooUrl]
+      // Try v8 then v7 endpoint, across multiple proxies
+      const v8url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ticker) + '?interval=1d&range=' + range;
+      const v7url = 'https://query2.finance.yahoo.com/v7/finance/chart/' + encodeURIComponent(ticker) + '?interval=1d&range=' + range;
+      const proxies = [
+        'https://corsproxy.io/?',
+        'https://api.allorigins.win/raw?url=',
+        'https://thingproxy.freeboard.io/fetch/',
+        'https://api.codetabs.com/v1/proxy?quest='
+      ];
+      // Flatten: try v8 on each proxy, then v7 on each proxy
+      const attempts = [
+        ...proxies.map(p => [p, v8url]),
+        ...proxies.map(p => [p, v7url])
+      ];
+      for (const [proxyPrefix, yahooUrl] of attempts) {
+        try {
+          const response = await fetch(proxyPrefix + encodeURIComponent(yahooUrl));
+          if (!response.ok) continue;
+          const data = await response.json();
+          const result = data.chart?.result?.[0];
+          if (!result) continue;
+          
+          const currentPrice = result.meta?.regularMarketPrice || 0;
+          const timestamps = result.timestamp || [];
+          const closePrices = result.indicators?.quote?.[0]?.close || [];
+          if (currentPrice === 0 || closePrices.length === 0) continue;
+          
+          const nzPriceMap = {};
+          for (let i = 0; i < timestamps.length; i++) {
+            if (closePrices[i] !== null && closePrices[i] > 0) {
+              const date = new Date(timestamps[i] * 1000);
+              const nzDateStr = date.toLocaleDateString('en-NZ', { 
+                timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit' 
+              }).split('/').reverse().join('-');
+              nzPriceMap[nzDateStr] = closePrices[i];
+            }
+          }
+          
+          const now = new Date();
+          const nzToday = now.toLocaleDateString('en-NZ', { 
+            timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit' 
+          }).split('/').reverse().join('-');
+          
+          const historicalPrices = [];
+          const todayDate = new Date(nzToday + 'T00:00:00');
+          const maxDays = historicalDays * 2; // Check twice as many days to account for weekends
+          for (let daysAgo = 0; daysAgo < maxDays; daysAgo++) {
+            const checkDate = new Date(todayDate);
+            checkDate.setDate(checkDate.getDate() - daysAgo);
+            const checkDateStr = checkDate.toISOString().split('T')[0];
+            if (nzPriceMap[checkDateStr]) {
+              historicalPrices.push(nzPriceMap[checkDateStr]);
+              if (historicalPrices.length >= historicalDays) break;
+            }
+          }
+          
+          return { currentPrice: currentPrice, historical: historicalPrices };
+        } catch (e) {
+          continue;
+        }
+      }
+      return null;
+    }
+
+    function getCurrencyForTicker(ticker) {
+      if (ticker.startsWith('NZE:')) return 'NZD';
+      if (ticker.startsWith('ASX:')) return 'AUD';
+      return 'USD';
+    }
+
+    function convertToNZD(price, currency) {
+      if (currency === 'NZD') return price;
+      if (currency === 'AUD') return price * exchangeRates.AUDNZD;
+      if (currency === 'USD') return price * exchangeRates.USDNZD;
+      return price;
+    }
+
+    async function fetchExchangeRates() {
+      try {
+        const rateAUD = await fetch('https://api.exchangerate-api.com/v4/latest/AUD');
+        const dataAUD = await rateAUD.json();
+        exchangeRates.AUDNZD = dataAUD.rates.NZD || 1.0;
+        const rateUSD = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+        const dataUSD = await rateUSD.json();
+        exchangeRates.USDNZD = dataUSD.rates.NZD || 1.0;
+      } catch (e) {
+        exchangeRates = { AUDNZD: 1.08, USDNZD: 1.72 };
+      }
+    }
+
+    async function fetchBenchmarkData() {
+      // Read benchmark returns directly from the "Benchmarks" tab in Google Sheets.
+      // That tab uses GOOGLEFINANCE() formulas which are accurate and need no CORS proxy.
+      // Expected layout: row 1 = headers (Benchmark | 1D% | 7D% | 70D%)
+      //                  rows 2-4 = NZX50, ASX200, S&P500
+      try {
+        const resp = await fetch(
+          'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID +
+          '/values/Benchmarks?key=' + API_KEY
+        );
+        const json = await resp.json();
+        if (!json.values || json.values.length < 2) return;
+        const rows = json.values.slice(1); // skip header row
+        const nameMap = { 'NZX50': 'NZX50', 'ASX200': 'ASX200', 'S&P500': 'SP500', 'SP500': 'SP500' };
+        rows.forEach(row => {
+          const key = nameMap[String(row[0] || '').trim().toUpperCase()] ||
+                      nameMap[String(row[0] || '').trim()];
+          if (!key) return;
+          const parse = v => { const n = parseFloat(String(v).replace('%','')); return isNaN(n) ? null : n; };
+          benchmarkData[key] = {
+            '1d':  parse(row[1]),
+            '7d':  parse(row[2]),
+            '70d': parse(row[3])
+          };
+        });
+      } catch (e) {
+        console.log('Could not load Benchmarks sheet:', e);
+      }
+    }
+
+    async function updatePricesFromYahoo() {
+      const btn = document.getElementById('updatePricesBtn');
+      btn.disabled = true;
+      btn.textContent = 'Fetching rates...';
+      await fetchExchangeRates();
+      btn.textContent = 'Updating prices...';
+      let ok = 0, fail = 0;
+      
+      for (let i = 0; i < portfolioData.length; i++) {
+        const stock = portfolioData[i];
+        const ticker = stock['Ticker/Symbol'] || '';
+        if (!ticker) continue;
+        
+        try {
+          const normalizedTicker = normalizeTickerForYahoo(ticker);
+          const curr = getCurrencyForTicker(ticker);
+          const data = await fetchYahooData(normalizedTicker);
+          
+          if (data && data.currentPrice > 0) {
+            stock['Current Price'] = convertToNZD(data.currentPrice, curr);
+            if (data.historical && data.historical.length > 1) {
+              for (let j = 1; j < Math.min(data.historical.length, 8); j++) {
+                stock['Day-' + j] = convertToNZD(data.historical[j], curr);
+              }
+            }
+            ok++;
+          } else {
+            fail++;
+          }
+        } catch (e) {
+          fail++;
+        }
+        
+        btn.textContent = 'Updating... (' + (ok + fail) + '/' + portfolioData.length + ')';
+        await new Promise(r => setTimeout(r, 200));
+      }
+      
+      if (ok > 0) saveCachedData(portfolioData);
+      btn.disabled = false;
+      btn.textContent = 'Update Prices';
+      alert('Updated ' + ok + ' stocks successfully');
+      render();
+    }
+
+    document.getElementById('priceSourceSelect').onchange = (e) => setPriceSource(e.target.value);
+    document.getElementById('updatePricesBtn').onclick = updatePricesFromYahoo;
+
+    document.getElementById('settingsBtn').onclick = () => {
+      document.getElementById('sheetsUrl').value = SHEET_ID ? 'https://docs.google.com/spreadsheets/d/' + SHEET_ID : '';
+      document.getElementById('apiKey').value = API_KEY;
+      document.getElementById('sheetName').value = SHEET_NAME;
+      document.getElementById('settingsModal').classList.remove('hidden');
+    };
+
+    document.getElementById('cancelBtn').onclick = () => {
+      document.getElementById('settingsModal').classList.add('hidden');
+    };
+
+    document.getElementById('saveBtn').onclick = () => {
+      const url = document.getElementById('sheetsUrl').value;
+      const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (!match) {
+        alert('Invalid URL');
+        return;
+      }
+      SHEET_ID = match[1];
+      API_KEY = document.getElementById('apiKey').value;
+      SHEET_NAME = document.getElementById('sheetName').value;
+      localStorage.setItem('sheetId', SHEET_ID);
+      localStorage.setItem('apiKey', API_KEY);
+      localStorage.setItem('sheetName', SHEET_NAME);
+      document.getElementById('settingsModal').classList.add('hidden');
+      loadData(true);
+    };
+
+    function setSortBy(sort) { sortBy = sort; render(); }
+    function setGainLossPeriod(period) { 
+      gainLossPeriod = period; 
+      updateGainLossSections();
+    }
+    function setFifFilter(filter) { fifFilter = filter; render(); }
+    function setLocationFilter(filter) { locationFilter = filter; render(); }
+
+    function updateGainLossSections() {
+      const withGains = portfolioData.map(s => ({ 
+        stock: s, 
+        gainPct: getStockGainPct(s, gainLossPeriod), 
+        gainDollar: getStockGainDollar(s, gainLossPeriod) 
+      }));
+      const topGDollar = [...withGains].filter(i => i.gainDollar > 0).sort((a, b) => b.gainDollar - a.gainDollar).slice(0, 3);
+      const topLDollar = [...withGains].filter(i => i.gainDollar < 0).sort((a, b) => a.gainDollar - b.gainDollar).slice(0, 3);
+      const topGPercent = [...withGains].filter(i => i.gainPct > 0).sort((a, b) => b.gainPct - a.gainPct).slice(0, 3);
+      const topLPercent = [...withGains].filter(i => i.gainPct < 0).sort((a, b) => a.gainPct - b.gainPct).slice(0, 3);
+
+      // Update Top Gainers $ Amount
+      let html = '<h3 class="font-bold mb-3 text-green-700">Top Gainers ($ Amount)</h3><div class="flex gap-1 mb-3 flex-wrap">';
+      ['day', '7days', '10weeks', 'purchase'].forEach(p => {
+        const label = p === 'day' ? '1 Day' : p === '7days' ? '7 Days' : p === '10weeks' ? '10 Weeks' : 'Since Purchase';
+        html += '<button onclick="setGainLossPeriod(\'' + p + '\')" class="text-xs px-2 py-1 rounded ' + (gainLossPeriod === p ? 'bg-blue-600 text-white' : 'bg-gray-200') + '">' + label + '</button>';
+      });
+      html += '</div>';
+      topGDollar.forEach(i => {
+        html += '<div class="mb-2 pb-2 border-b last:border-0"><div class="flex justify-between items-center"><div><p class="font-medium">' + (i.stock['Firm name'] || 'Unknown') + '</p><p class="text-xs text-gray-600">' + (i.stock['Ticker/Symbol'] || '') + '</p></div><p class="font-bold text-green-700">+$' + fmt(i.gainDollar) + ' <span class="text-sm">(+' + i.gainPct.toFixed(1) + '%)</span></p></div></div>';
+      });
+      const gainerDollar = document.getElementById('topGainersDollar');
+      if (gainerDollar) gainerDollar.innerHTML = html;
+
+      // Update Top Losers $ Amount
+      html = '<h3 class="font-bold mb-3 text-red-700">Top Losers ($ Amount)</h3><div class="flex gap-1 mb-3 flex-wrap">';
+      ['day', '7days', '10weeks', 'purchase'].forEach(p => {
+        const label = p === 'day' ? '1 Day' : p === '7days' ? '7 Days' : p === '10weeks' ? '10 Weeks' : 'Since Purchase';
+        html += '<button onclick="setGainLossPeriod(\'' + p + '\')" class="text-xs px-2 py-1 rounded ' + (gainLossPeriod === p ? 'bg-blue-600 text-white' : 'bg-gray-200') + '">' + label + '</button>';
+      });
+      html += '</div>';
+      topLDollar.forEach(i => {
+        html += '<div class="mb-2 pb-2 border-b last:border-0"><div class="flex justify-between items-center"><div><p class="font-medium">' + (i.stock['Firm name'] || 'Unknown') + '</p><p class="text-xs text-gray-600">' + (i.stock['Ticker/Symbol'] || '') + '</p></div><p class="font-bold text-red-700">-$' + fmt(Math.abs(i.gainDollar)) + ' <span class="text-sm">(' + i.gainPct.toFixed(1) + '%)</span></p></div></div>';
+      });
+      const loserDollar = document.getElementById('topLosersDollar');
+      if (loserDollar) loserDollar.innerHTML = html;
+
+      // Update Top Gainers % Change
+      html = '<h3 class="font-bold mb-3 text-green-700">Top Gainers (% Change)</h3><div class="flex gap-1 mb-3 flex-wrap">';
+      ['day', '7days', '10weeks', 'purchase'].forEach(p => {
+        const label = p === 'day' ? '1 Day' : p === '7days' ? '7 Days' : p === '10weeks' ? '10 Weeks' : 'Since Purchase';
+        html += '<button onclick="setGainLossPeriod(\'' + p + '\')" class="text-xs px-2 py-1 rounded ' + (gainLossPeriod === p ? 'bg-blue-600 text-white' : 'bg-gray-200') + '">' + label + '</button>';
+      });
+      html += '</div>';
+      topGPercent.forEach(i => {
+        html += '<div class="mb-2 pb-2 border-b last:border-0"><div class="flex justify-between items-center"><div><p class="font-medium">' + (i.stock['Firm name'] || 'Unknown') + '</p><p class="text-xs text-gray-600">' + (i.stock['Ticker/Symbol'] || '') + '</p></div><p class="font-bold text-green-700">+' + i.gainPct.toFixed(1) + '% <span class="text-sm">(+$' + fmt(i.gainDollar) + ')</span></p></div></div>';
+      });
+      const gainerPercent = document.getElementById('topGainersPercent');
+      if (gainerPercent) gainerPercent.innerHTML = html;
+
+      // Update Top Losers % Change
+      html = '<h3 class="font-bold mb-3 text-red-700">Top Losers (% Change)</h3><div class="flex gap-1 mb-3 flex-wrap">';
+      ['day', '7days', '10weeks', 'purchase'].forEach(p => {
+        const label = p === 'day' ? '1 Day' : p === '7days' ? '7 Days' : p === '10weeks' ? '10 Weeks' : 'Since Purchase';
+        html += '<button onclick="setGainLossPeriod(\'' + p + '\')" class="text-xs px-2 py-1 rounded ' + (gainLossPeriod === p ? 'bg-blue-600 text-white' : 'bg-gray-200') + '">' + label + '</button>';
+      });
+      html += '</div>';
+      topLPercent.forEach(i => {
+        html += '<div class="mb-2 pb-2 border-b last:border-0"><div class="flex justify-between items-center"><div><p class="font-medium">' + (i.stock['Firm name'] || 'Unknown') + '</p><p class="text-xs text-gray-600">' + (i.stock['Ticker/Symbol'] || '') + '</p></div><p class="font-bold text-red-700">' + i.gainPct.toFixed(1) + '% <span class="text-sm">(-$' + fmt(Math.abs(i.gainDollar)) + ')</span></p></div></div>';
+      });
+      const loserPercent = document.getElementById('topLosersPercent');
+      if (loserPercent) loserPercent.innerHTML = html;
+    }
+    function setActiveView(view) { activeView = view; render(); }
+    function setTableMetric(metric) { tableMetric = metric; render(); }
+    function setTableSortBy(sort) { tableSortBy = sort; render(); }
+
+    function dismissAlert(ticker, alertKey) {
+      if (!dismissedAlerts[ticker]) dismissedAlerts[ticker] = [];
+      if (!dismissedAlerts[ticker].includes(alertKey)) {
+        dismissedAlerts[ticker].push(alertKey);
+      }
+      saveDismissedAlerts();
+      render();
+    }
+
+    function getStockAlerts(stock) {
+      return [];
+    }
+
+    async function loadData(forceFresh) {
+      try {
+        if (!forceFresh) {
+          const now = Date.now();
+          if (now - lastRefreshTime < REFRESH_COOLDOWN) {
+            const remaining = Math.ceil((REFRESH_COOLDOWN - (now - lastRefreshTime)) / 1000);
+            alert('Please wait ' + remaining + ' seconds before refreshing again');
+            return;
+          }
+        }
+        
+        lastRefreshTime = Date.now();
+        
+        const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + SHEET_NAME + '?key=' + API_KEY);
+        const json = await response.json();
+        
+        if (json.values && json.values.length > 1) {
+          const headers = json.values[0];
+          portfolioData = json.values.slice(1).map(row => {
+            const obj = {};
+            headers.forEach((h, i) => { obj[h] = row[i] || ''; });
+            return obj;
+          }).filter(s => !isWatchlisted(s));
+          
+          // Fetch sold holdings
+          try {
+            const soldResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + SOLD_SHEET_NAME + '?key=' + API_KEY);
+            const soldJson = await soldResponse.json();
+            if (soldJson.values && soldJson.values.length > 1) {
+              const soldHeaders = soldJson.values[0];
+              soldHoldingsData = soldJson.values.slice(1).map(row => {
+                const obj = {};
+                soldHeaders.forEach((h, i) => { obj[h] = row[i] || ''; });
+                return obj;
+              }).filter(s => s['Firm name']); // Only include rows with a firm name
+            }
+          } catch (e) {
+            console.log('Could not load sold holdings (optional):', e);
+            soldHoldingsData = [];
+          }
+          
+          saveCachedData(portfolioData);
+          await fetchBenchmarkData();
+          render();
+        } else {
+          document.getElementById('content').innerHTML = '<p class="text-red-600">No data found</p>';
+        }
+      } catch (error) {
+        if (portfolioData.length === 0) {
+          const cached = getCachedData();
+          if (cached && cached.data.length > 0) {
+            portfolioData = cached.data.filter(s => !isWatchlisted(s));
+            render();
+            document.getElementById('content').innerHTML += '<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm mt-4"><p class="text-yellow-800">Using cached data. Could not refresh: ' + error.message + '</p></div>';
+          } else {
+            document.getElementById('content').innerHTML = '<p class="text-red-600">Error: ' + error.message + '</p>';
+          }
+        } else {
+          document.getElementById('content').innerHTML = '<p class="text-red-600">Error: ' + error.message + '</p>';
+        }
+      }
+    }
+
+    function cleanPrice(p) {
+      if (!p) return 0;
+      const str = String(p).trim();
+      if (str === '#N/A' || str === '#NA' || str === 'N/A' || str === '') return 0;
+      const n = parseFloat(str.replace(/[$,]/g, ''));
+      return isNaN(n) ? 0 : n;
+    }
+
+    function cleanNumber(n) {
+      if (!n) return 0;
+      const num = parseFloat(String(n).replace(/[,]/g, ''));
+      return isNaN(num) ? 0 : num;
+    }
+
+    // Format a number with commas and optional decimal places (NZ locale)
+    function fmt(n, d = 0) {
+      if (typeof n !== 'number' || isNaN(n)) return '0';
+      return n.toLocaleString('en-NZ', { minimumFractionDigits: d, maximumFractionDigits: d });
+    }
+
+    // Detect ETFs / index funds — exempt from single-stock concentration warnings
+    function isETF(stock) {
+      const name = (stock['Firm name'] || '').toLowerCase();
+      const ticker = (stock['Ticker/Symbol'] || '').toLowerCase();
+      return name.includes('etf') || name.includes(' fund') || name.includes('index fund') ||
+             name.includes('vanguard') || name.includes('ishares') || name.includes('smartshares') ||
+             ticker.includes('etf');
+    }
+
+    // Robust field lookup — tries multiple column name variants in order
+    function getField(obj, ...candidates) {
+      for (const key of candidates) {
+        const val = obj[key];
+        if (val !== undefined && val !== null && String(val).trim() !== '') return val;
+      }
+      return '';
+    }
+
+    // Returns calendar days since purchase date, or null if no date available.
+    // Accepts DD/MM/YYYY (NZ) and ISO YYYY-MM-DD formats.
+    function getPurchaseDaysAgo(stock) {
+      const dateStr = stock['Purchase Date'] || '';
+      if (!dateStr) return null;
+      let d = null;
+      const nzMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (nzMatch) {
+        d = new Date(parseInt(nzMatch[3]), parseInt(nzMatch[2]) - 1, parseInt(nzMatch[1]));
+      } else {
+        d = new Date(dateStr);
+      }
+      if (!d || isNaN(d.getTime())) return null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      d.setHours(0, 0, 0, 0);
+      return Math.max(0, Math.floor((today - d) / (1000 * 60 * 60 * 24)));
+    }
+
+    function isWatchlisted(stock) {
+      const w = stock.Watchlist || '';
+      return w.toString().toLowerCase() === 'yes' || w.toString().toLowerCase() === 'true' || w.toString() === '1' || w.toString().toLowerCase() === 'x';
+    }
+
+    function getStockValue(stock) {
+      const tv = cleanPrice(stock['Total current value']);
+      if (tv > 0) return tv;
+      return (parseFloat(stock.Quantity) || 0) * cleanPrice(stock['Current Price']);
+    }
+
+    function getStockCost(stock) {
+      const tc = cleanPrice(stock['Total purchase price']);
+      if (tc > 0) return tc;
+      return (parseFloat(stock.Quantity) || 0) * cleanPrice(stock['Purchase Price']);
+    }
+
+    function getStockGain(stock) {
+      return getStockValue(stock) - getStockCost(stock);
+    }
+
+    function getStockGainPct(stock, period) {
+      period = period || 'purchase';
+      const curr = cleanPrice(stock['Current Price']);
+      let base;
+      if (period === 'day') base = cleanPrice(stock['Day-1']);
+      else if (period === '7days') base = cleanPrice(stock['Day-7']);
+      else if (period === '10weeks') base = cleanPrice(stock['Day-70']);
+      else base = cleanPrice(stock['Purchase Price']);
+      if (!base || base === 0) return 0;
+      return ((curr - base) / base) * 100;
+    }
+
+    function getStockGainDollar(stock, period) {
+      period = period || 'purchase';
+      const qty = parseFloat(stock.Quantity) || 0;
+      const curr = cleanPrice(stock['Current Price']);
+      let base;
+      if (period === 'day') base = cleanPrice(stock['Day-1']);
+      else if (period === '7days') base = cleanPrice(stock['Day-7']);
+      else if (period === '10weeks') base = cleanPrice(stock['Day-70']);
+      else base = cleanPrice(stock['Purchase Price']);
+      if (!base || base === 0) return 0;
+      return qty * (curr - base);
+    }
+
+    function sortStocks(stocks) {
+      return [...stocks].sort((a, b) => {
+        if (sortBy === 'value') return getStockValue(b) - getStockValue(a);
+        if (sortBy === 'gainPct') return getStockGainPct(b) - getStockGainPct(a);
+        if (sortBy === 'lossPct') return getStockGainPct(a) - getStockGainPct(b);
+        if (sortBy === 'gainValue') return getStockGain(b) - getStockGain(a);
+        if (sortBy === 'lossValue') return getStockGain(a) - getStockGain(b);
+        if (sortBy === 'dayChange') {
+          const aChg = (parseFloat(a.Quantity) || 0) * (cleanPrice(a['Current Price']) - cleanPrice(a['Day-1']));
+          const bChg = (parseFloat(b.Quantity) || 0) * (cleanPrice(b['Current Price']) - cleanPrice(b['Day-1']));
+          return bChg - aChg;
+        }
+        if (sortBy === 'name') return (a['Firm name'] || '').localeCompare(b['Firm name'] || '');
+        return 0;
+      });
+    }
+
+    function renderBigPlanView(html, portfolioWithMetrics, totalValue, totalCost, gain, gainPct, top5Pct, sortedByValue, portfolioVol, totalFIF, fifRem, benchmarkReturns, portfolioReturn7d, portfolioReturn70d) {
+      html += '<div class="max-w-4xl mx-auto">';
+
+      // Header
+      html += '<div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg p-6 mb-6 flex items-center justify-between">';
+      html += '<div><h1 class="text-2xl font-bold">Portfolio Intelligence</h1><p class="text-blue-100 mt-1">' + portfolioData.length + ' positions</p></div>';
+      html += '<div class="text-right"><p class="text-3xl font-bold">$' + fmt(totalValue) + '</p><p class="text-blue-200 text-sm">Total Value</p></div>';
+      html += '</div>';
+
+      // Compute key metrics
+      const stocksAtRisk = portfolioWithMetrics.filter(i => i.drawdown < -20).length;
+      const largestPct = ((sortedByValue[0].value / totalValue) * 100);
+      const winningStocks = portfolioData.filter(s => getStockGain(s) > 0).length;
+      const losingStocks = portfolioData.filter(s => getStockGain(s) < 0).length;
+      const winRate = ((winningStocks / portfolioData.length) * 100);
+      const largestIsETF = isETF(sortedByValue[0].stock);
+
+      let realizedGain = 0, realizedCost = 0, soldCount = 0, winningSales = 0, soldDividends = 0;
+      if (soldHoldingsData && soldHoldingsData.length > 0) {
+        soldHoldingsData.forEach(s => {
+          const profitLoss = cleanPrice(getField(s, 'Profit/Loss', 'Profit / Loss', 'P/L', 'Net Gain', 'Net Profit', 'Gain/Loss', 'Profit', 'Total Profit'));
+          const cost = cleanPrice(getField(s, 'Total Cost', 'Total Purchase Price', 'Cost', 'Purchase Cost', 'Cost Base'));
+          const dividend = cleanPrice(getField(s, 'Dividend', 'Dividends', 'Div'));
+          realizedGain += profitLoss; realizedCost += cost; soldDividends += dividend; soldCount++;
+          if (profitLoss > 0) winningSales++;
+        });
+      }
+      let currentDividends = 0;
+      portfolioData.forEach(s => { currentDividends += cleanPrice(s['Dividend']); });
+      const totalDivs = currentDividends + soldDividends;
+      const allTimeGain = gain + realizedGain + totalDivs;
+      const allTimeCost = totalCost + realizedCost;
+      const allTimeGainPct = allTimeCost > 0 ? (allTimeGain / allTimeCost) * 100 : 0;
+      const realizedGainPct = realizedCost > 0 ? (realizedGain / realizedCost) * 100 : 0;
+      const sellWinRate = soldCount > 0 ? (winningSales / soldCount) * 100 : 0;
+
+      // ── Snapshot metric cards ──────────────────────────────────────────────
+      html += '<div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">';
+
+      // Unrealised gain
+      const gainColor2 = gain >= 0 ? 'text-green-700' : 'text-red-700';
+      const gainBg2 = gain >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+      html += '<div class="rounded-lg border p-4 ' + gainBg2 + '">';
+      html += '<p class="text-xs text-gray-500 mb-1">Unrealised Gain/Loss</p>';
+      html += '<p class="text-xl font-bold ' + gainColor2 + '">' + (gain >= 0 ? '+' : '') + '$' + fmt(gain) + '</p>';
+      html += '<p class="text-sm ' + gainColor2 + '">' + (gainPct >= 0 ? '+' : '') + gainPct.toFixed(1) + '% on current holdings</p>';
+      html += '</div>';
+
+      // Realised gains
+      const rgColor = realizedGain >= 0 ? 'text-green-700' : 'text-red-700';
+      const rgBg = soldCount > 0 ? (realizedGain >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-gray-50 border-gray-200';
+      html += '<div class="rounded-lg border p-4 ' + rgBg + '">';
+      html += '<p class="text-xs text-gray-500 mb-1">Realised Gains (' + soldCount + ' exits)</p>';
+      if (soldCount > 0) {
+        html += '<p class="text-xl font-bold ' + rgColor + '">' + (realizedGain >= 0 ? '+' : '') + '$' + fmt(realizedGain) + '</p>';
+        html += '<p class="text-sm ' + rgColor + '">' + (realizedGainPct >= 0 ? '+' : '') + realizedGainPct.toFixed(1) + '% · ' + winningSales + '/' + soldCount + ' profitable</p>';
+      } else {
+        html += '<p class="text-xl font-bold text-gray-400">No exits yet</p>';
+        html += '<p class="text-sm text-gray-400">Track in Sold Holdings sheet</p>';
+      }
+      html += '</div>';
+
+      // Dividends
+      html += '<div class="rounded-lg border p-4 ' + (totalDivs > 0 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200') + '">';
+      html += '<p class="text-xs text-gray-500 mb-1">Total Dividends</p>';
+      html += '<p class="text-xl font-bold text-blue-700">$' + fmt(totalDivs) + '</p>';
+      if (totalDivs > 0 && soldDividends > 0) {
+        html += '<p class="text-sm text-blue-600">$' + fmt(currentDividends) + ' current + $' + fmt(soldDividends) + ' sold</p>';
+      } else {
+        html += '<p class="text-sm text-blue-600">From current holdings</p>';
+      }
+      html += '</div>';
+
+      // All-time return
+      const atColor = allTimeGain >= 0 ? 'text-purple-700' : 'text-red-700';
+      html += '<div class="rounded-lg border p-4 bg-purple-50 border-purple-200">';
+      html += '<p class="text-xs text-gray-500 mb-1">All-Time Return</p>';
+      html += '<p class="text-xl font-bold ' + atColor + '">' + (allTimeGain >= 0 ? '+' : '') + '$' + fmt(allTimeGain) + '</p>';
+      html += '<p class="text-sm ' + atColor + '">' + (allTimeGainPct >= 0 ? '+' : '') + allTimeGainPct.toFixed(1) + '% incl. dividends &amp; exits</p>';
+      html += '</div>';
+
+      // Win rate
+      const wrColor = winRate >= 60 ? 'text-green-700' : winRate >= 50 ? 'text-amber-700' : 'text-red-700';
+      const wrBg = winRate >= 60 ? 'bg-green-50 border-green-200' : winRate >= 50 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
+      html += '<div class="rounded-lg border p-4 ' + wrBg + '">';
+      html += '<p class="text-xs text-gray-500 mb-1">Win Rate (current)</p>';
+      html += '<p class="text-xl font-bold ' + wrColor + '">' + winningStocks + '↑ &nbsp;' + losingStocks + '↓</p>';
+      html += '<p class="text-sm ' + wrColor + '">' + winRate.toFixed(0) + '% up' + (soldCount > 0 ? ' · exits ' + sellWinRate.toFixed(0) + '%' : '') + '</p>';
+      html += '</div>';
+
+      // Capital deployed
+      html += '<div class="rounded-lg border p-4 bg-gray-50 border-gray-200">';
+      html += '<p class="text-xs text-gray-500 mb-1">Capital Deployed</p>';
+      html += '<p class="text-xl font-bold text-gray-700">$' + fmt(totalCost) + '</p>';
+      html += '<p class="text-sm text-gray-500">' + portfolioData.length + ' positions · $' + fmt(totalValue - totalCost) + ' net</p>';
+      html += '</div>';
+
+      html += '</div>'; // end snapshot grid
+
+      // ── Performance vs Benchmarks ──────────────────────────────────────────
+      html += '<div class="bg-white rounded-lg shadow-lg p-6 mb-6">';
+      html += '<h2 class="text-lg font-bold text-gray-800 mb-4">Performance vs Benchmarks</h2>';
+      html += '<div class="overflow-x-auto">';
+      html += '<table class="w-full text-sm"><thead><tr class="border-b-2 border-gray-200">';
+      html += '<th class="text-left py-2 pr-4 text-gray-500 font-medium">Period</th>';
+      html += '<th class="text-right py-2 px-3 font-semibold text-blue-700">Your Portfolio</th>';
+      html += '<th class="text-right py-2 px-3 text-gray-500 font-medium">NZX50</th>';
+      html += '<th class="text-right py-2 px-3 text-gray-500 font-medium">ASX200</th>';
+      html += '<th class="text-right py-2 px-3 text-gray-500 font-medium">S&P500</th>';
+      html += '</tr></thead><tbody>';
+
+      // Recalculate 1-day return inline
+      let bpv1old = 0, bpv1curr = 0;
+      portfolioData.forEach(s => {
+        const qty2 = parseFloat(s.Quantity) || 0;
+        const curr2 = cleanPrice(s['Current Price']);
+        const p12 = cleanPrice(s['Day-1']);
+        if (p12 > 0 && curr2 > 0) { bpv1old += qty2 * p12; bpv1curr += qty2 * curr2; }
+      });
+      const portfolioReturn1dBP = bpv1old > 0 ? ((bpv1curr - bpv1old) / bpv1old) * 100 : null;
+
+      const bpPeriods = [
+        { label: '1 Day',   portRet: portfolioReturn1dBP, key: '1d' },
+        { label: '7 Days',  portRet: portfolioReturn7d,   key: '7d' },
+        { label: '70 Days', portRet: portfolioReturn70d,  key: '70d' }
+      ];
+      // Benchmark cell: red = you're beating it, green = it's beating you
+      const fmtBenchCell2 = (v, portRet) => {
+        if (v === null || v === undefined || isNaN(v)) return '<span class="text-gray-300">—</span>';
+        const beating = portRet !== null && !isNaN(portRet) && portRet > v;
+        const c = beating ? 'text-red-600' : 'text-green-600';
+        return '<span class="' + c + ' font-medium">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span>';
+      };
+      const fmtPortRet2 = v => {
+        if (v === null || v === undefined || isNaN(v)) return '<span class="text-gray-300">—</span>';
+        const c = v >= 0 ? 'text-green-600' : 'text-red-600';
+        return '<span class="' + c + ' font-bold">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span>';
+      };
+      bpPeriods.forEach(p => {
+        const nzx = benchmarkReturns['NZX50']  ? benchmarkReturns['NZX50'][p.key]  : null;
+        const asx = benchmarkReturns['ASX200'] ? benchmarkReturns['ASX200'][p.key] : null;
+        const sp5 = benchmarkReturns['SP500']  ? benchmarkReturns['SP500'][p.key]  : null;
+        html += '<tr class="border-b border-gray-100">';
+        html += '<td class="py-2 pr-4 text-gray-600 font-medium">' + p.label + '</td>';
+        html += '<td class="py-2 px-3 text-right">' + fmtPortRet2(p.portRet) + '</td>';
+        html += '<td class="py-2 px-3 text-right">' + fmtBenchCell2(nzx, p.portRet) + '</td>';
+        html += '<td class="py-2 px-3 text-right">' + fmtBenchCell2(asx, p.portRet) + '</td>';
+        html += '<td class="py-2 px-3 text-right">' + fmtBenchCell2(sp5, p.portRet) + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+
+      const beatingBenchmarks = [];
+      if (Object.keys(benchmarkReturns).length > 0) {
+        if (benchmarkReturns['NZX50']  && portfolioReturn70d > benchmarkReturns['NZX50']['70d'])  beatingBenchmarks.push('NZX50');
+        if (benchmarkReturns['ASX200'] && portfolioReturn70d > benchmarkReturns['ASX200']['70d']) beatingBenchmarks.push('ASX200');
+        if (benchmarkReturns['SP500']  && portfolioReturn70d > benchmarkReturns['SP500']['70d'])  beatingBenchmarks.push('S&P500');
+      }
+      if (beatingBenchmarks.length > 0) {
+        html += '<p class="text-sm text-green-700 mt-3 font-medium">↑ Outperforming ' + beatingBenchmarks.join(', ') + ' over 70 days</p>';
+      } else if (Object.keys(benchmarkReturns).length > 0) {
+        html += '<p class="text-sm text-amber-600 mt-3">Trailing benchmarks on 70-day view</p>';
+      }
+      html += '</div></div>';
+
+      // ── FIF Status ─────────────────────────────────────────────────────────
+      const fifPct2 = Math.min((totalFIF / 50000) * 100, 100);
+      const fifBarColor = fifPct2 > 90 ? '#ef4444' : fifPct2 > 70 ? '#f59e0b' : '#22c55e';
+      html += '<div class="bg-white rounded-lg shadow-lg p-6 mb-6">';
+      html += '<div class="flex items-center justify-between mb-3">';
+      html += '<h2 class="text-lg font-bold text-gray-800">FIF Allowance</h2>';
+      html += '<div class="text-right"><span class="text-xl font-bold" style="color:' + fifBarColor + '">$' + fmt(totalFIF) + '</span><span class="text-gray-400 text-sm"> / $50,000</span></div>';
+      html += '</div>';
+      html += '<div class="w-full bg-gray-200 rounded-full h-4 mb-2">';
+      html += '<div class="h-4 rounded-full" style="width:' + fifPct2.toFixed(1) + '%;background:' + fifBarColor + '"></div>';
+      html += '</div>';
+      html += '<div class="flex justify-between text-sm text-gray-500">';
+      html += '<span>' + fifPct2.toFixed(0) + '% used</span><span>$' + fmt(fifRem) + ' remaining</span>';
+      html += '</div>';
+      if (fifRem < 5000) {
+        html += '<p class="text-sm text-red-600 font-semibold mt-2">Near FIF limit — new foreign purchases will trigger FIF tax</p>';
+      } else if (fifRem < 15000) {
+        html += '<p class="text-sm text-amber-600 mt-2">Approaching FIF limit — plan foreign purchases carefully</p>';
+      }
+      html += '</div>';
+
+      // ── Risk Snapshot ──────────────────────────────────────────────────────
+      html += '<div class="bg-white rounded-lg shadow-lg p-6 mb-6">';
+      html += '<h2 class="text-lg font-bold text-gray-800 mb-4">Risk Snapshot</h2>';
+      html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">';
+
+      // Volatility
+      const volColor2 = portfolioVol > 30 ? 'text-red-700' : portfolioVol > 20 ? 'text-amber-700' : 'text-green-700';
+      const volBg2    = portfolioVol > 30 ? 'bg-red-50 border-red-200' : portfolioVol > 20 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200';
+      html += '<div class="rounded-lg border p-4 ' + volBg2 + '">';
+      html += '<p class="text-xs text-gray-500 mb-1">Annualised Volatility</p>';
+      html += '<p class="text-xl font-bold ' + volColor2 + '">' + portfolioVol.toFixed(0) + '%</p>';
+      html += '<p class="text-xs ' + volColor2 + '">' + (portfolioVol > 30 ? 'High' : portfolioVol > 20 ? 'Moderate' : 'Low') + '</p>';
+      html += '</div>';
+
+      // Drawdowns
+      const ddColor2 = stocksAtRisk > 5 ? 'text-red-700' : stocksAtRisk > 0 ? 'text-amber-700' : 'text-green-700';
+      const ddBg2    = stocksAtRisk > 5 ? 'bg-red-50 border-red-200' : stocksAtRisk > 0 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200';
+      html += '<div class="rounded-lg border p-4 ' + ddBg2 + '">';
+      html += '<p class="text-xs text-gray-500 mb-1">Down &gt;20% from Peak</p>';
+      html += '<p class="text-xl font-bold ' + ddColor2 + '">' + stocksAtRisk + ' stock' + (stocksAtRisk !== 1 ? 's' : '') + '</p>';
+      html += '<p class="text-xs ' + ddColor2 + '">' + (stocksAtRisk === 0 ? 'None in danger zone' : 'Review these positions') + '</p>';
+      html += '</div>';
+
+      // Largest position — ETF-aware
+      const concColor2 = (!largestIsETF && largestPct > 15) ? 'text-red-700' : (!largestIsETF && largestPct > 12) ? 'text-amber-700' : 'text-green-700';
+      const concBg2    = (!largestIsETF && largestPct > 15) ? 'bg-red-50 border-red-200' : (!largestIsETF && largestPct > 12) ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200';
+      const largestName2 = (sortedByValue[0].stock['Firm name'] || sortedByValue[0].stock['Ticker/Symbol'] || '').split(' ').slice(0,3).join(' ');
+      html += '<div class="rounded-lg border p-4 ' + concBg2 + '">';
+      html += '<p class="text-xs text-gray-500 mb-1">Largest Position</p>';
+      html += '<p class="text-xl font-bold ' + concColor2 + '">' + largestPct.toFixed(1) + '%</p>';
+      html += '<p class="text-xs ' + concColor2 + '">' + largestName2 + (largestIsETF ? ' (ETF — OK)' : '') + '</p>';
+      html += '</div>';
+
+      // Top-5 concentration
+      const t5Color2 = top5Pct > 50 ? 'text-red-700' : top5Pct > 40 ? 'text-amber-700' : 'text-green-700';
+      const t5Bg2    = top5Pct > 50 ? 'bg-red-50 border-red-200' : top5Pct > 40 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200';
+      html += '<div class="rounded-lg border p-4 ' + t5Bg2 + '">';
+      html += '<p class="text-xs text-gray-500 mb-1">Top-5 Concentration</p>';
+      html += '<p class="text-xl font-bold ' + t5Color2 + '">' + top5Pct.toFixed(0) + '%</p>';
+      html += '<p class="text-xs ' + t5Color2 + '">' + (top5Pct > 50 ? 'Over 40% target' : top5Pct > 40 ? 'Near target' : 'Within range') + '</p>';
+      html += '</div>';
+
+      html += '</div></div>'; // end risk grid + card
+
+      // ── Holdings Breakdown ─────────────────────────────────────────────────
+      html += '<div class="bg-white rounded-lg shadow-lg p-6 mb-6">';
+      html += '<h2 class="text-lg font-bold text-gray-800 mb-4">Holdings Breakdown <span class="text-gray-400 font-normal text-sm">ranked by value</span></h2>';
+      html += '<div>';
+
+      sortedByValue.forEach((item, idx) => {
+        const sv = item.stock;
+        const pctBar = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
+        const gv = getStockGain(sv);
+        const costv = getStockCost(sv);
+        const divv = cleanPrice(sv['Dividend']);
+        const totalRetv = gv + divv;
+        const totalRetPctv = costv > 0 ? (totalRetv / costv) * 100 : 0;
+        const retColorv = totalRetv >= 0 ? 'text-green-600' : 'text-red-600';
+        const barColorv = totalRetv >= 0 ? '#22c55e' : '#ef4444';
+        const etfv = isETF(sv);
+        const namev = sv['Firm name'] || sv['Ticker/Symbol'] || 'Unknown';
+        const tickerv = sv['Ticker/Symbol'] || '';
+
+        html += '<div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">';
+        html += '<div class="w-5 text-xs text-gray-400 text-right shrink-0">' + (idx + 1) + '</div>';
+        html += '<div class="flex-1 min-w-0">';
+        html += '<div class="flex items-center gap-2 mb-1">';
+        html += '<span class="font-medium text-sm text-gray-800 truncate">' + namev + '</span>';
+        if (etfv) html += '<span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold shrink-0">ETF</span>';
+        html += '</div>';
+        html += '<div class="w-full bg-gray-100 rounded-full h-1.5">';
+        html += '<div class="h-1.5 rounded-full" style="width:' + Math.min(pctBar, 100).toFixed(1) + '%;background:' + barColorv + '"></div>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="text-right shrink-0">';
+        html += '<p class="text-sm font-semibold text-gray-800">$' + fmt(item.value) + ' <span class="text-gray-400 font-normal text-xs">(' + pctBar.toFixed(1) + '%)</span></p>';
+        html += '<p class="text-xs ' + retColorv + '">' + (totalRetv >= 0 ? '+' : '') + '$' + fmt(totalRetv) + ' / ' + (totalRetPctv >= 0 ? '+' : '') + totalRetPctv.toFixed(1) + '%</p>';
+        html += '</div>';
+        html += '</div>';
+      });
+
+      html += '</div></div>';
+
+      html += '</div>'; // end max-w-4xl      html += '</div>';
+      
+      document.getElementById('content').innerHTML = html;
+    }
+
+    function renderTableView(tabsHtml, totalValue, totalCost, gain, gainPct, dayChg, weekChg, fifRem) {
+      let html = tabsHtml;
+      
+      const cached = getCachedData();
+      if (cached) {
+        const min = Math.floor((Date.now() - cached.timestamp) / 60000);
+        const hr = Math.floor(min / 60);
+        let age = min < 1 ? 'just now' : (hr > 0 ? hr + ' hour' + (hr > 1 ? 's' : '') + ' ago' : min + ' minute' + (min > 1 ? 's' : '') + ' ago');
+        html += '<div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm"><p class="text-blue-800">Data loaded ' + age + ' from ' + (priceSource === 'yahoo' ? 'Yahoo Finance' : 'Google Sheets') + '</p></div>';
+      }
+      
+      const tableData = portfolioData.map(stock => {
+        const curr = cleanPrice(stock['Current Price']);
+        const day1 = cleanPrice(stock['Day-1']);
+        const day7 = cleanPrice(stock['Day-7']);
+        const day28 = cleanPrice(stock['Day-28']);
+        const purchase = cleanPrice(stock['Purchase Price']);
+        const qty = parseFloat(stock.Quantity) || 0;
+        const capGain = purchase > 0 ? qty * (curr - purchase) : 0;
+        const divAmt = cleanPrice(stock['Dividend']);
+        
+        return {
+          stock: stock,
+          dayDollar: day1 > 0 ? qty * (curr - day1) : 0,
+          dayPercent: day1 > 0 ? ((curr - day1) / day1) * 100 : 0,
+          day7Dollar: day7 > 0 ? qty * (curr - day7) : 0,
+          day7Percent: day7 > 0 ? ((curr - day7) / day7) * 100 : 0,
+          fourweeksDollar: day28 > 0 ? qty * (curr - day28) : 0,
+          fourweeksPercent: day28 > 0 ? ((curr - day28) / day28) * 100 : 0,
+          purchaseDollar: purchase > 0 ? qty * (curr - purchase) : 0,
+          purchasePercent: purchase > 0 ? ((curr - purchase) / purchase) * 100 : 0,
+          totalReturnDollar: capGain + divAmt,
+          totalReturnPercent: (purchase > 0 && qty > 0) ? ((capGain + divAmt) / (qty * purchase)) * 100 : 0,
+          hasDay: day1 > 0,
+          hasDay7: day7 > 0,
+          hasFourweeks: day28 > 0,
+          hasPurchase: purchase > 0
+        };
+      });
+      
+      let totalGains = 0;
+      let totalLosses = 0;
+      portfolioData.forEach(s => {
+        const g = getStockGain(s);
+        if (g > 0) totalGains += g;
+        else if (g < 0) totalLosses += g;
+      });
+      
+      html += '<div class="bg-gradient-to-br from-gray-700 to-gray-900 text-white rounded-lg p-4"><div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">';
+      html += '<div><p class="text-gray-300 text-xs">Total Value</p><p class="text-lg font-bold">$' + fmt(totalValue) + '</p></div>';
+      html += '<div><p class="text-gray-300 text-xs">Total Cost</p><p class="text-lg font-bold text-gray-300">$' + fmt(totalCost) + '</p></div>';
+      html += '<div><p class="text-gray-300 text-xs">Net Gain/Loss</p><p class="text-lg font-bold ' + (gain >= 0 ? 'text-green-400' : 'text-red-400') + '">' + (gain >= 0 ? '+' : '') + '$' + fmt(gain) + '</p></div>';
+      html += '<div><p class="text-gray-300 text-xs">Total Gains</p><p class="text-lg font-bold text-green-400">+$' + fmt(totalGains) + '</p></div>';
+      html += '<div><p class="text-gray-300 text-xs">Total Losses</p><p class="text-lg font-bold text-red-400">-$' + fmt(Math.abs(totalLosses)) + '</p></div>';
+      html += '<div><p class="text-gray-300 text-xs">Gain/Loss %</p><p class="text-lg font-bold ' + (gainPct >= 0 ? 'text-green-400' : 'text-red-400') + '">' + (gainPct >= 0 ? '+' : '') + gainPct.toFixed(2) + '%</p></div>';
+      html += '<div><p class="text-gray-300 text-xs">1-Day Change</p><p class="text-lg font-bold ' + (dayChg >= 0 ? 'text-green-400' : 'text-red-400') + '">' + (dayChg >= 0 ? '+' : '') + '$' + fmt(dayChg) + '</p></div>';
+      html += '<div><p class="text-gray-300 text-xs">FIF Remaining</p><p class="text-lg font-bold ' + (fifRem > 10000 ? 'text-green-400' : fifRem > 0 ? 'text-yellow-400' : 'text-red-400') + '">$' + fmt(fifRem) + '</p></div>';
+      html += '</div></div>';
+      
+      html += '<div class="flex gap-2 flex-wrap items-center">';
+      html += '<button onclick="setTableMetric(\'dollar\')" class="px-3 py-1 rounded text-sm ' + (tableMetric === 'dollar' ? 'bg-blue-600 text-white' : 'bg-gray-200') + '">$ Amount</button>';
+      html += '<button onclick="setTableMetric(\'percent\')" class="px-3 py-1 rounded text-sm ' + (tableMetric === 'percent' ? 'bg-blue-600 text-white' : 'bg-gray-200') + '">% Change</button>';
+      html += '<span class="text-gray-400">|</span>';
+      html += '<button onclick="setTableSortBy(\'day\')" class="px-3 py-1 rounded text-sm ' + (tableSortBy === 'day' ? 'bg-green-600 text-white' : 'bg-gray-200') + '">Sort by Day</button>';
+      html += '<button onclick="setTableSortBy(\'7days\')" class="px-3 py-1 rounded text-sm ' + (tableSortBy === '7days' ? 'bg-green-600 text-white' : 'bg-gray-200') + '">Sort by 7 Days</button>';
+      html += '<button onclick="setTableSortBy(\'4weeks\')" class="px-3 py-1 rounded text-sm ' + (tableSortBy === '4weeks' ? 'bg-green-600 text-white' : 'bg-gray-200') + '">Sort by 4 Weeks</button>';
+      html += '<button onclick="setTableSortBy(\'purchase\')" class="px-3 py-1 rounded text-sm ' + (tableSortBy === 'purchase' ? 'bg-green-600 text-white' : 'bg-gray-200') + '">Sort by Total Return</button>';
+      html += '</div>';
+      
+      let sortKey;
+      if (tableSortBy === '4weeks') {
+        sortKey = tableMetric === 'dollar' ? 'fourweeksDollar' : 'fourweeksPercent';
+      } else if (tableSortBy === '7days') {
+        sortKey = tableMetric === 'dollar' ? 'day7Dollar' : 'day7Percent';
+      } else if (tableSortBy === 'purchase') {
+        sortKey = tableMetric === 'dollar' ? 'totalReturnDollar' : 'totalReturnPercent';
+      } else {
+        sortKey = tableMetric === 'dollar' ? tableSortBy + 'Dollar' : tableSortBy + 'Percent';
+      }
+      const sorted = [...tableData].sort((a, b) => b[sortKey] - a[sortKey]);
+      
+      html += '<div class="bg-white rounded-lg shadow overflow-x-auto"><table class="w-full text-sm">';
+      html += '<thead class="bg-gray-100 border-b-2 border-gray-300"><tr>';
+      html += '<th class="px-3 py-2 text-left font-semibold">Stock</th>';
+      html += '<th class="px-3 py-2 text-left font-semibold">Ticker</th>';
+      html += '<th class="px-3 py-2 text-right font-semibold">Price</th>';
+      html += '<th class="px-3 py-2 text-right font-semibold">Qty</th>';
+      html += '<th class="px-3 py-2 text-right font-semibold">Cost</th>';
+      html += '<th class="px-3 py-2 text-right font-semibold">Value</th>';
+      html += '<th class="px-3 py-2 text-right font-semibold ' + (tableSortBy === 'day' ? 'bg-blue-100' : '') + '">1 Day</th>';
+      html += '<th class="px-3 py-2 text-right font-semibold ' + (tableSortBy === '7days' ? 'bg-blue-100' : '') + '">7 Days</th>';
+      html += '<th class="px-3 py-2 text-right font-semibold ' + (tableSortBy === '4weeks' ? 'bg-blue-100' : '') + '">4 Wks</th>';
+      html += '<th class="px-3 py-2 text-right font-semibold ' + (tableSortBy === 'purchase' ? 'bg-blue-100' : '') + '">Total Return</th>';
+      html += '</tr></thead><tbody>';
+      
+      sorted.forEach((item, idx) => {
+        const s = item.stock;
+        const curr = cleanPrice(s['Current Price']);
+        const qty = parseFloat(s.Quantity) || 0;
+        const val = getStockValue(s);
+        const cost = getStockCost(s);
+        
+        html += '<tr class="border-b ' + (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50') + '">';
+        const tblEtf = isETF(s);
+        html += '<td class="px-3 py-2 font-medium">' + (s['Firm name'] || 'Unknown') + (tblEtf ? ' <span class="text-xs bg-blue-100 text-blue-700 px-1 rounded">ETF</span>' : '') + '</td>';
+        html += '<td class="px-3 py-2 text-gray-600">' + (s['Ticker/Symbol'] || '') + '</td>';
+        html += '<td class="px-3 py-2 text-right">$' + fmt(curr, 2) + '</td>';
+        html += '<td class="px-3 py-2 text-right">' + qty + '</td>';
+        html += '<td class="px-3 py-2 text-right font-medium">$' + fmt(cost) + '</td>';
+        html += '<td class="px-3 py-2 text-right font-medium">$' + fmt(val) + '</td>';
+        
+        if (item.hasDay) {
+          const val = tableMetric === 'dollar' ? item.dayDollar : item.dayPercent;
+          const display = tableMetric === 'dollar' ? '$' + fmt(Math.abs(val)) : Math.abs(val).toFixed(1) + '%';
+          const color = val >= 0 ? 'text-green-600' : 'text-red-600';
+          html += '<td class="px-3 py-2 text-right font-medium ' + color + ' ' + (tableSortBy === 'day' ? 'bg-blue-50' : '') + '">' + (val >= 0 ? '+' : '-') + display + '</td>';
+        } else {
+          html += '<td class="px-3 py-2 text-right text-gray-400 ' + (tableSortBy === 'day' ? 'bg-blue-50' : '') + '">-</td>';
+        }
+        
+        if (item.hasDay7) {
+          const v7d = tableMetric === 'dollar' ? item.day7Dollar : item.day7Percent;
+          const d7d = tableMetric === 'dollar' ? '$' + fmt(Math.abs(v7d)) : Math.abs(v7d).toFixed(1) + '%';
+          const c7d = v7d >= 0 ? 'text-green-600' : 'text-red-600';
+          html += '<td class="px-3 py-2 text-right font-medium ' + c7d + ' ' + (tableSortBy === '7days' ? 'bg-blue-50' : '') + '">' + (v7d >= 0 ? '+' : '-') + d7d + '</td>';
+        } else {
+          html += '<td class="px-3 py-2 text-right text-gray-400 ' + (tableSortBy === '7days' ? 'bg-blue-50' : '') + '">-</td>';
+        }
+
+        if (item.hasFourweeks) {
+          const val = tableMetric === 'dollar' ? item.fourweeksDollar : item.fourweeksPercent;
+          const display = tableMetric === 'dollar' ? '$' + fmt(Math.abs(val)) : Math.abs(val).toFixed(1) + '%';
+          const color = val >= 0 ? 'text-green-600' : 'text-red-600';
+          html += '<td class="px-3 py-2 text-right font-medium ' + color + ' ' + (tableSortBy === '4weeks' ? 'bg-blue-50' : '') + '">' + (val >= 0 ? '+' : '-') + display + '</td>';
+        } else {
+          html += '<td class="px-3 py-2 text-right text-gray-400 ' + (tableSortBy === '4weeks' ? 'bg-blue-50' : '') + '">-</td>';
+        }
+        
+        // Total Return (capital gain + dividends)
+        const trVal = tableMetric === 'dollar' ? item.totalReturnDollar : item.totalReturnPercent;
+        const trDisp = tableMetric === 'dollar' ? '$' + fmt(Math.abs(trVal)) : Math.abs(trVal).toFixed(1) + '%';
+        const trColor = trVal >= 0 ? 'text-green-600' : 'text-red-600';
+        html += '<td class="px-3 py-2 text-right font-medium ' + trColor + ' ' + (tableSortBy === 'purchase' ? 'bg-blue-50' : '') + '">' + (trVal >= 0 ? '+' : '-') + trDisp + '</td>';
+        
+        html += '</tr>';
+      });
+      
+      html += '</tbody></table></div>';
+      
+      html += '<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">';
+      html += '<h3 class="font-bold mb-3 text-yellow-800">Portfolio Verification</h3>';
+      html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">';
+      html += '<div><p class="text-gray-600">Total Stocks:</p><p class="font-bold">' + portfolioData.length + '</p></div>';
+      html += '<div><p class="text-gray-600">Sum of Values:</p><p class="font-bold">$' + fmt(totalValue, 2) + '</p></div>';
+      html += '<div><p class="text-gray-600">Sum of Costs:</p><p class="font-bold">$' + fmt(totalCost, 2) + '</p></div>';
+      html += '<div><p class="text-gray-600">Calculated Gain:</p><p class="font-bold ' + (gain >= 0 ? 'text-green-600' : 'text-red-600') + '">' + (gain >= 0 ? '+' : '') + '$' + fmt(gain, 2) + '</p></div>';
+      html += '<div><p class="text-gray-600">Check:</p><p class="font-bold">' + fmt(totalGains, 2) + ' + (' + fmt(totalLosses, 2) + ') = ' + fmt(totalGains + totalLosses, 2) + '</p></div>';
+      html += '</div></div>';
+      
+      html += '<div class="flex gap-2 mt-4">';
+      html += '<button onclick="loadData(false)" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Refresh from Google Sheets</button>';
+      html += '<button onclick="loadData(true)" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">Force Fresh Reload</button>';
+      html += '<button onclick="clearCache()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Clear Cache</button>';
+      html += '</div></div>';
+      
+      document.getElementById('content').innerHTML = html;
+    }
+
+    function clearCache() {
+      if (confirm('This will clear all cached data and reload fresh from Google Sheets. Continue?')) {
+        localStorage.removeItem('portfolioCache');
+        portfolioData = [];
+        Object.values(charts).forEach(c => c.destroy());
+        Object.values(stockCharts).forEach(c => c.destroy());
+        charts = {};
+        stockCharts = {};
+        lastRefreshTime = 0;
+        alert('Cache cleared! Reloading fresh data...');
+        loadData(true);
+      }
+    }
+
+    function createGainLossChart() {
+      const canvas = document.getElementById('gainLossChart');
+      if (!canvas) return;
+
+      const data = portfolioData.map(s => ({
+        name: s['Firm name'] || s['Ticker/Symbol'],
+        gain: getStockGain(s)
+      })).sort((a, b) => b.gain - a.gain);
+
+      const top5Gains = data.filter(s => s.gain > 0).slice(0, 5);
+      const top5Losses = data.filter(s => s.gain < 0).sort((a, b) => a.gain - b.gain).slice(0, 5);
+
+      charts.gainLoss = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: [...top5Gains.map(s => s.name), ...top5Losses.map(s => s.name)],
+          datasets: [{
+            label: 'Gain/Loss',
+            data: [...top5Gains.map(s => s.gain), ...top5Losses.map(s => s.gain)],
+            backgroundColor: [...top5Gains.map(() => 'rgba(34,197,94,0.7)'), ...top5Losses.map(() => 'rgba(239,68,68,0.7)')],
+            borderColor: [...top5Gains.map(() => 'rgb(34,197,94)'), ...top5Losses.map(() => 'rgb(239,68,68)')],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 1.5,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: c => (c.parsed.x >= 0 ? '+' : '') + '$' + fmt(c.parsed.x)
+              }
+            }
+          },
+          scales: {
+            x: { 
+              ticks: { callback: v => '$' + fmt(v) }
+            }
+          }
+        }
+      });
+    }
+
+    function createValueTrendChart() {
+      const canvas = document.getElementById('valueTrendChart');
+      if (!canvas) return;
+
+      // Plot unrealised P&L = Σ qty × (price_at_day_i − purchase_price)
+      // Stocks not yet owned at day i (no price data) are excluded, so new buys
+      // don't cause sudden jumps in the chart.
+      const days = [], values = [];
+      for (let i = 70; i >= 0; i--) {
+        let gainSum = 0, has = false;
+        portfolioData.forEach(stock => {
+          const qty = parseFloat(stock.Quantity) || 0;
+          const purchasePrice = cleanPrice(stock['Purchase Price']);
+          if (qty > 0 && purchasePrice > 0) {
+            const price = i === 0 ? cleanPrice(stock['Current Price']) : cleanPrice(stock['Day-' + i]);
+            if (price > 0) { gainSum += qty * (price - purchasePrice); has = true; }
+          }
+        });
+        if (has) {
+          days.push(i === 0 ? 'Today' : i + 'd');
+          values.push(gainSum);
+        }
+      }
+
+      // Smooth out anomalous drops (multi-day drops >40% that recover are likely API errors)
+      // Look for valleys where value drops significantly but recovers within 1-3 days
+      for (let i = 1; i < values.length; i++) {
+        const prevValue = values[i - 1];
+        const currValue = values[i];
+        
+        // Check if current value is way below previous
+        const dropFromPrev = ((prevValue - currValue) / prevValue) * 100;
+        
+        if (dropFromPrev > 40) {
+          // Look ahead up to 3 days to find recovery
+          let recoveryIdx = -1;
+          for (let j = i + 1; j < values.length; j++) {
+            const futureValue = values[j];
+            const diffFromPrev = Math.abs((futureValue - prevValue) / prevValue) * 100;
+            // If future value is within 20% of pre-drop value, we found recovery
+            if (diffFromPrev < 20) {
+              recoveryIdx = j;
+              break;
+            }
+          }
+          
+          // If we found a recovery, interpolate the dropped values
+          if (recoveryIdx > 0) {
+            const recoveryValue = values[recoveryIdx];
+            const span = recoveryIdx - i + 1;
+            // Linear interpolation between prevValue and recoveryValue
+            for (let k = i; k < recoveryIdx; k++) {
+              const progress = (k - i + 1) / (span + 1);
+              values[k] = prevValue + (recoveryValue - prevValue) * progress;
+            }
+            i = recoveryIdx; // Skip ahead past the corrected section
+          } else {
+            // No recovery found, just use previous value
+            values[i] = prevValue;
+          }
+        }
+      }
+
+      const firstValue = values[0];
+      charts.valueTrend = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: days,
+          datasets: [{
+            label: 'Unrealised P&L',
+            data: values,
+            borderColor: 'rgb(59,130,246)',
+            backgroundColor: 'rgba(59,130,246,0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 1,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 3,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: c => {
+                  const pnl = c.parsed.y;
+                  const change = pnl - firstValue;
+                  return [
+                    'P&L: ' + (pnl >= 0 ? '+' : '') + '$' + fmt(pnl),
+                    'vs 70d ago: ' + (change >= 0 ? '+' : '') + '$' + fmt(change)
+                  ];
+                }
+              }
+            }
+          },
+          scales: {
+            y: { 
+              beginAtZero: false,
+              ticks: { callback: v => '$' + fmt(v) }
+            },
+            x: { 
+              ticks: { 
+                maxRotation: 0, 
+                minRotation: 0,
+                maxTicksLimit: 15
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function createTopHoldingsChart() {
+      const canvas = document.getElementById('topHoldingsChart');
+      if (!canvas) return;
+
+      const top = portfolioData.map(s => ({
+        name: s['Firm name'] || s['Ticker/Symbol'],
+        value: getStockValue(s),
+        gain: getStockGain(s)
+      })).sort((a, b) => b.value - a.value).slice(0, 10);
+
+      charts.topHoldings = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: top.map(s => s.name),
+          datasets: [{
+            label: 'Current Value',
+            data: top.map(s => s.value),
+            backgroundColor: top.map(s => s.gain >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)'),
+            borderColor: top.map(s => s.gain >= 0 ? 'rgb(34,197,94)' : 'rgb(239,68,68)'),
+            borderWidth: 2
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: 2,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (c) => [
+                  'Value: $' + fmt(c.parsed.x),
+                  'Gain: ' + (top[c.dataIndex].gain >= 0 ? '+' : '') + '$' + fmt(top[c.dataIndex].gain)
+                ]
+              }
+            }
+          },
+          scales: {
+            x: { beginAtZero: true, ticks: { callback: v => '$' + fmt(v) } }
+          }
+        }
+      });
+    }
+
+    function createPortfolioCharts() {
+      const dpCanvas = document.getElementById('dailyPerformanceChart');
+      if (dpCanvas) {
+        // Use unrealised P&L so buying new shares doesn't show as a large positive bar
+        const days = [], values = [];
+        for (let i = 70; i >= 0; i--) {
+          let gainSum = 0, has = false;
+          portfolioData.forEach(stock => {
+            const qty = parseFloat(stock.Quantity) || 0;
+            const purchasePrice = cleanPrice(stock['Purchase Price']);
+            if (qty > 0 && purchasePrice > 0) {
+              const price = i === 0 ? cleanPrice(stock['Current Price']) : cleanPrice(stock['Day-' + i]);
+              if (price > 0) { gainSum += qty * (price - purchasePrice); has = true; }
+            }
+          });
+          if (has) {
+            days.push(i === 0 ? 'Today' : i + 'd ago');
+            values.push(gainSum);
+          }
+        }
+        
+        // Smooth out anomalous drops (multi-day drops >40% that recover are likely API errors)
+        for (let i = 1; i < values.length; i++) {
+          const prevValue = values[i - 1];
+          const currValue = values[i];
+          const dropFromPrev = ((prevValue - currValue) / prevValue) * 100;
+          
+          if (dropFromPrev > 40) {
+            let recoveryIdx = -1;
+            for (let j = i + 1; j < values.length; j++) {
+              const futureValue = values[j];
+              const diffFromPrev = Math.abs((futureValue - prevValue) / prevValue) * 100;
+              if (diffFromPrev < 20) {
+                recoveryIdx = j;
+                break;
+              }
+            }
+            
+            if (recoveryIdx > 0) {
+              const recoveryValue = values[recoveryIdx];
+              const span = recoveryIdx - i + 1;
+              for (let k = i; k < recoveryIdx; k++) {
+                const progress = (k - i + 1) / (span + 1);
+                values[k] = prevValue + (recoveryValue - prevValue) * progress;
+              }
+              i = recoveryIdx;
+            } else {
+              values[i] = prevValue;
+            }
+          }
+        }
+        
+        const gains = values.map((v, i) => i === 0 ? 0 : v - values[i - 1]);
+        const colors = gains.map((g, i) => {
+          const recent = i >= values.length - 7;
+          return g >= 0 ? (recent ? 'rgba(34,197,94,0.8)' : 'rgba(34,197,94,0.5)') : (recent ? 'rgba(239,68,68,0.8)' : 'rgba(239,68,68,0.5)');
+        });
+        
+        charts.dailyPerf = new Chart(dpCanvas, {
+          type: 'bar',
+          data: {
+            labels: days,
+            datasets: [{
+              data: gains,
+              backgroundColor: colors,
+              borderColor: gains.map(g => g >= 0 ? 'rgb(34,197,94)' : 'rgb(239,68,68)'),
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 3,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  title: c => days[c[0].dataIndex],
+                  label: c => ['Value: $' + fmt(values[c.dataIndex], 2), 'Change: ' + (gains[c.dataIndex] >= 0 ? '+' : '') + '$' + fmt(gains[c.dataIndex], 2)]
+                }
+              }
+            },
+            scales: {
+              y: { beginAtZero: true, ticks: { callback: v => '$' + fmt(v) } },
+              x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 9 } } }
+            }
+          }
+        });
+      }
+
+      const gCanvas = document.getElementById('topGainersChart');
+      if (gCanvas) {
+        const withGain = portfolioData.map(s => {
+          const qty = parseFloat(s.Quantity) || 0;
+          const curr = cleanPrice(s['Current Price']);
+          const yes = cleanPrice(s['Day-1']);
+          if (yes === 0) return null;
+          return { stock: s, gain: qty * (curr - yes), gainPct: ((curr - yes) / yes) * 100 };
+        }).filter(i => i && i.gain > 0);
+        const top = withGain.sort((a, b) => b.gain - a.gain).slice(0, 5);
+        if (top.length > 0) {
+          charts.gainers = new Chart(gCanvas, {
+            type: 'bar',
+            data: {
+              labels: top.map(i => i.stock['Firm name'] || i.stock['Ticker/Symbol']),
+              datasets: [{ data: top.map(i => i.gain), backgroundColor: 'rgba(34,197,94,0.7)', borderColor: 'rgb(34,197,94)', borderWidth: 1 }]
+            },
+            options: { 
+              responsive: true, 
+              maintainAspectRatio: true, 
+              aspectRatio: 2, 
+              plugins: { 
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (c) => [
+                      'Gain: $' + fmt(c.parsed.y, 2),
+                      'Change: +' + top[c.dataIndex].gainPct.toFixed(1) + '%'
+                    ]
+                  }
+                }
+              }, 
+              scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + fmt(v) } } } 
+            }
+          });
+        }
+      }
+
+      const lCanvas = document.getElementById('topLosersChart');
+      if (lCanvas) {
+        const withLoss = portfolioData.map(s => {
+          const qty = parseFloat(s.Quantity) || 0;
+          const curr = cleanPrice(s['Current Price']);
+          const yes = cleanPrice(s['Day-1']);
+          if (yes === 0) return null;
+          return { stock: s, gain: qty * (curr - yes), gainPct: ((curr - yes) / yes) * 100 };
+        }).filter(i => i && i.gain < 0);
+        const top = withLoss.sort((a, b) => a.gain - b.gain).slice(0, 5);
+        if (top.length > 0) {
+          charts.losers = new Chart(lCanvas, {
+            type: 'bar',
+            data: {
+              labels: top.map(i => i.stock['Firm name'] || i.stock['Ticker/Symbol']),
+              datasets: [{ data: top.map(i => Math.abs(i.gain)), backgroundColor: 'rgba(239,68,68,0.7)', borderColor: 'rgb(239,68,68)', borderWidth: 1 }]
+            },
+            options: { 
+              responsive: true, 
+              maintainAspectRatio: true, 
+              aspectRatio: 2, 
+              plugins: { 
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (c) => [
+                      'Loss: $' + fmt(c.parsed.y, 2),
+                      'Change: ' + top[c.dataIndex].gainPct.toFixed(1) + '%'
+                    ]
+                  }
+                }
+              }, 
+              scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + fmt(v) } } } 
+            }
+          });
+        }
+      }
+    }
+
+    function createStockCharts(ticker, canvasId7d, canvasId70d) {
+      const stock = portfolioData.find(s => s['Ticker/Symbol'] === ticker);
+      if (!stock) return;
+
+      const curr = cleanPrice(stock['Current Price']);
+      const purchasePrice = cleanPrice(stock['Purchase Price']);
+
+      // 7-day chart
+      const canvas7d = document.getElementById(canvasId7d);
+      if (canvas7d) {
+        const prices7d = [curr];
+        for (let i = 1; i <= 7; i++) {
+          const p = cleanPrice(stock['Day-' + i]);
+          if (p > 0) prices7d.unshift(p);
+        }
+
+        const chartKey7d = ticker + '-7d';
+        if (stockCharts[chartKey7d]) stockCharts[chartKey7d].destroy();
+
+        stockCharts[chartKey7d] = new Chart(canvas7d, {
+          type: 'line',
+          data: {
+            labels: prices7d.map((_, i) => i === prices7d.length - 1 ? 'Now' : '-' + (prices7d.length - 1 - i) + 'd'),
+            datasets: [{
+              label: 'Price',
+              data: prices7d,
+              borderColor: 'rgb(59,130,246)',
+              backgroundColor: 'rgba(59,130,246,0.1)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.3,
+              pointRadius: 2
+            }, {
+              label: 'Purchase Price',
+              data: prices7d.map(() => purchasePrice),
+              borderColor: 'rgb(156,163,175)',
+              borderWidth: 1,
+              borderDash: [5, 5],
+              fill: false,
+              pointRadius: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+              padding: 0
+            },
+            plugins: { 
+              legend: { display: false }, 
+              tooltip: { 
+                enabled: true,
+                callbacks: {
+                  label: (context) => {
+                    if (context.datasetIndex === 0) {
+                      return 'Price: $' + fmt(context.parsed.y, 2);
+                    }
+                    return 'Purchase: $' + fmt(context.parsed.y, 2);
+                  }
+                }
+              } 
+            },
+            scales: {
+              y: { display: false },
+              x: { display: false }
+            }
+          }
+        });
+      }
+
+      // 70-day chart
+      const canvas70d = document.getElementById(canvasId70d);
+      if (canvas70d) {
+        const prices70d = [curr];
+        for (let i = 1; i <= 70; i++) {
+          const p = cleanPrice(stock['Day-' + i]);
+          if (p > 0) prices70d.unshift(p);
+        }
+
+        const chartKey70d = ticker + '-70d';
+        if (stockCharts[chartKey70d]) stockCharts[chartKey70d].destroy();
+
+        stockCharts[chartKey70d] = new Chart(canvas70d, {
+          type: 'line',
+          data: {
+            labels: prices70d.map((_, i) => ''),
+            datasets: [{
+              label: 'Price',
+              data: prices70d,
+              borderColor: 'rgb(34,197,94)',
+              backgroundColor: 'rgba(34,197,94,0.1)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.3,
+              pointRadius: 2,
+              pointHoverRadius: 4
+            }, {
+              label: 'Purchase Price',
+              data: prices70d.map(() => purchasePrice),
+              borderColor: 'rgb(156,163,175)',
+              borderWidth: 1,
+              borderDash: [5, 5],
+              fill: false,
+              pointRadius: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+              padding: 0
+            },
+            plugins: { 
+              legend: { display: false }, 
+              tooltip: { 
+                enabled: true,
+                callbacks: {
+                  label: (context) => {
+                    if (context.datasetIndex === 0) {
+                      return 'Price: $' + fmt(context.parsed.y, 2);
+                    }
+                    return 'Purchase: $' + fmt(context.parsed.y, 2);
+                  }
+                }
+              } 
+            },
+            scales: {
+              y: { display: false },
+              x: { display: false }
+            }
+          }
+        });
+      }
+    }
+
+    function render() {
+      if (portfolioData.length === 0) {
+        document.getElementById('content').innerHTML = '<p class="text-gray-600">No data found</p>';
+        return;
+      }
+
+      document.getElementById('priceSourceSelect').value = priceSource;
+      document.getElementById('updatePricesBtn').style.display = priceSource === 'yahoo' ? 'block' : 'none';
+      
+      Object.values(charts).forEach(c => c.destroy());
+      Object.values(stockCharts).forEach(c => c.destroy());
+      charts = {};
+      stockCharts = {};
+
+      let totalValue = 0, totalCost = 0, totalFIF = 0, totalValYes = 0, totalValWeek = 0, totalDividends = 0;
+      portfolioData.forEach(s => {
+        totalValue += getStockValue(s);
+        totalCost += getStockCost(s);
+        totalValYes += (parseFloat(s.Quantity) || 0) * cleanPrice(s['Day-1']);
+        totalValWeek += (parseFloat(s.Quantity) || 0) * cleanPrice(s['Day-7']);
+        totalDividends += cleanPrice(s['Dividend']);
+        
+        const fifEligible = (s['FIF Eligible'] || '').toLowerCase().trim();
+        if (fifEligible === 'yes' || fifEligible === 'y' || fifEligible === 'true' || fifEligible === '1') {
+          totalFIF += getStockCost(s);
+        }
+      });
+      const gain = totalValue - totalCost;
+      const gainPct = totalCost > 0 ? (gain / totalCost) * 100 : 0;
+      const fifRem = 50000 - totalFIF;
+      let dayChg = totalValue - totalValYes;
+      const weekChg = totalValue - totalValWeek;
+
+      // Validate day change - if it's suspiciously large (>40% of portfolio), check Day-2
+      const dayChgPct = totalValue > 0 ? Math.abs(dayChg / totalValue) * 100 : 0;
+      if (dayChgPct > 40) {
+        // Day-1 data is likely bad, use Day-2 as reference
+        let totalValDay2 = 0;
+        portfolioData.forEach(s => {
+          totalValDay2 += (parseFloat(s.Quantity) || 0) * cleanPrice(s['Day-2']);
+        });
+        // If Day-2 is closer to current value, use it instead
+        const day2ChgPct = totalValue > 0 ? Math.abs((totalValue - totalValDay2) / totalValue) * 100 : 0;
+        if (day2ChgPct < dayChgPct && day2ChgPct < 40) {
+          dayChg = totalValue - totalValDay2;
+        } else {
+          // Both Day-1 and Day-2 seem bad, try Day-3
+          let totalValDay3 = 0;
+          portfolioData.forEach(s => {
+            totalValDay3 += (parseFloat(s.Quantity) || 0) * cleanPrice(s['Day-3']);
+          });
+          const day3ChgPct = totalValue > 0 ? Math.abs((totalValue - totalValDay3) / totalValue) * 100 : 0;
+          if (day3ChgPct < dayChgPct && day3ChgPct < 40) {
+            dayChg = totalValue - totalValDay3;
+          } else {
+            // All recent days seem bad, estimate from week change
+            dayChg = weekChg / 7; // Rough daily average from week
+          }
+        }
+      }
+
+      // Calculate portfolio metrics
+      const portfolioWithMetrics = portfolioData.map(s => {
+        const prices = getStockPrices(s, 70);
+        const vol = calculateVolatility(prices);
+        const curr = cleanPrice(s['Current Price']);
+        const maxPrice = Math.max(...prices.filter(p => p > 0));
+        const drawdown = maxPrice > 0 ? ((curr - maxPrice) / maxPrice) * 100 : 0;
+        return { stock: s, volatility: vol, drawdown: drawdown, value: getStockValue(s) };
+      });
+
+      // Portfolio volatility (weighted average)
+      let portfolioVol = 0;
+      portfolioWithMetrics.forEach(item => {
+        const weight = item.value / totalValue;
+        portfolioVol += item.volatility * weight;
+      });
+
+      // Concentration risk - top 5 holdings
+      const sortedByValue = [...portfolioWithMetrics].sort((a, b) => b.value - a.value);
+      const top5Value = sortedByValue.slice(0, 5).reduce((sum, item) => sum + item.value, 0);
+      const top5Pct = (top5Value / totalValue) * 100;
+
+      // Portfolio returns — symmetric: only include stocks that have data for the relevant period
+      // (excludes newly purchased stocks from distorting historical return calculations)
+      let pv70old = 0, pv70curr = 0, pv7old = 0, pv7curr = 0, pv1old = 0, pv1curr = 0;
+      portfolioData.forEach(s => {
+        const qty = parseFloat(s.Quantity) || 0;
+        const curr = cleanPrice(s['Current Price']);
+        const p70 = cleanPrice(s['Day-70']);
+        const p7  = cleanPrice(s['Day-7']);
+        const p1  = cleanPrice(s['Day-1']);
+        if (p70 > 0 && curr > 0) { pv70old += qty * p70; pv70curr += qty * curr; }
+        if (p7  > 0 && curr > 0) { pv7old  += qty * p7;  pv7curr  += qty * curr; }
+        if (p1  > 0 && curr > 0) { pv1old  += qty * p1;  pv1curr  += qty * curr; }
+      });
+      const portfolioReturn70d = calculateReturn(pv70old, pv70curr);
+      const portfolioReturn7d  = calculateReturn(pv7old,  pv7curr);
+      const portfolioReturn1d  = calculateReturn(pv1old,  pv1curr);
+
+      // Benchmark returns — pre-computed % values read from Benchmarks sheet
+      const benchmarkReturns = {};
+      ['NZX50', 'ASX200', 'SP500'].forEach(name => {
+        const b = benchmarkData[name];
+        if (b && (b['1d'] !== null || b['7d'] !== null || b['70d'] !== null)) {
+          benchmarkReturns[name] = { '1d': b['1d'], '7d': b['7d'], '70d': b['70d'] };
+        }
+      });
+
+      let html = '';
+      
+      html += '<div style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem;">';
+      html += '<button onclick="setActiveView(\'dashboard\')" class="btn-primary ' + (activeView === 'dashboard' ? 'active' : '') + '" style="padding: 0.75rem 1rem; border-bottom: 2px solid ' + (activeView === 'dashboard' ? 'var(--green)' : 'transparent') + ';">Dashboard</button>';
+      html += '<button onclick="setActiveView(\'table\')" class="btn-primary ' + (activeView === 'table' ? 'active' : '') + '" style="padding: 0.75rem 1rem; border-bottom: 2px solid ' + (activeView === 'table' ? 'var(--green)' : 'transparent') + ';">Table</button>';
+      html += '<button onclick="setActiveView(\'bigplan\')" class="btn-primary ' + (activeView === 'bigplan' ? 'active' : '') + '" style="padding: 0.75rem 1rem; border-bottom: 2px solid ' + (activeView === 'bigplan' ? 'var(--green)' : 'transparent') + ';">Big Plan</button>';
+      html += '</div>';
+
+      if (activeView === 'table') {
+        renderTableView(html, totalValue, totalCost, gain, gainPct, dayChg, weekChg, fifRem);
+        return;
+      }
+
+      if (activeView === 'bigplan') {
+        renderBigPlanView(html, portfolioWithMetrics, totalValue, totalCost, gain, gainPct, top5Pct, sortedByValue, portfolioVol, totalFIF, fifRem, benchmarkReturns, portfolioReturn7d, portfolioReturn70d);
+        return;
+      }
+
+      const cached = getCachedData();
+      if (cached) {
+        const min = Math.floor((Date.now() - cached.timestamp) / 60000);
+        const hr = Math.floor(min / 60);
+        let age = min < 1 ? 'just now' : (hr > 0 ? hr + ' hour' + (hr > 1 ? 's' : '') + ' ago' : min + ' minute' + (min > 1 ? 's' : '') + ' ago');
+        document.getElementById('lastUpdatedText').textContent = 'Last updated ' + age;
+      }
+      
+      html += '<div class="card" style="margin-bottom: 1.5rem;"><h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem;">Portfolio Summary</h2><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem;">';
+      html += '<div class="stat-card"><p class="label">Total Value</p><p class="metric-lg" style="margin-top: 0.25rem;">$' + fmt(totalValue) + '</p></div>';
+      html += '<div class="stat-card"><p class="label">Total Gain</p><p class="metric-md ' + (gain >= 0 ? 'gain' : 'loss') + '" style="margin-top: 0.25rem;">' + (gain >= 0 ? '+' : '') + '$' + fmt(Math.abs(gain)) + '</p><p style="font-size: 0.875rem; margin-top: 0.25rem;" class="' + (gainPct >= 0 ? 'gain' : 'loss') + '">' + (gainPct >= 0 ? '+' : '') + fmt(gainPct, 2) + '%</p></div>';
+      html += '<div class="stat-card"><p class="label">Day Change</p><p class="metric-md ' + (dayChg >= 0 ? 'gain' : 'loss') + '" style="margin-top: 0.25rem;">' + (dayChg >= 0 ? '+' : '') + '$' + fmt(Math.abs(dayChg)) + '</p></div>';
+      html += '<div class="stat-card"><p class="label">Week Change</p><p class="metric-md ' + (weekChg >= 0 ? 'gain' : 'loss') + '" style="margin-top: 0.25rem;">' + (weekChg >= 0 ? '+' : '') + '$' + fmt(Math.abs(weekChg)) + '</p></div>';
+      html += '<div class="stat-card"><p class="label">FIF Remaining</p><p class="metric-md" style="margin-top: 0.25rem; color: ' + (fifRem > 10000 ? 'var(--green)' : fifRem > 0 ? '#eab308' : 'var(--red)') + '">$' + fmt(fifRem) + '</p></div>';
+      html += '</div></div>';
+
+      html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">';
+      html += '<div class="stat-card"><p class="label">Holdings</p><p class="metric-md" style="margin-top: 0.25rem;">' + portfolioData.length + '</p></div>';
+      html += '<div class="stat-card"><p class="label">Winning</p><p class="metric-md gain" style="margin-top: 0.25rem;">' + portfolioData.filter(s => getStockGain(s) > 0).length + '</p></div>';
+      html += '<div class="stat-card"><p class="label">Losing</p><p class="metric-md loss" style="margin-top: 0.25rem;">' + portfolioData.filter(s => getStockGain(s) < 0).length + '</p></div>';
+      html += '<div class="stat-card"><p class="label">Win Rate</p><p class="metric-md" style="margin-top: 0.25rem; color: var(--text-primary);">' + ((portfolioData.filter(s => getStockGain(s) > 0).length / portfolioData.length) * 100).toFixed(1) + '%</p></div>';
+      html += '</div>';
+
+      // Calculate realized gains from sold holdings
+      let realizedGain = 0;
+      let realizedCost = 0;
+      let soldCount = 0;
+      let soldDividends = 0;
+      if (soldHoldingsData && soldHoldingsData.length > 0) {
+        soldHoldingsData.forEach(s => {
+          const profitLoss = cleanPrice(getField(s, 'Profit/Loss', 'Profit / Loss', 'P/L', 'Net Gain', 'Net Profit', 'Gain/Loss', 'Profit', 'Total Profit'));
+          const cost = cleanPrice(getField(s, 'Total Cost', 'Total Purchase Price', 'Cost', 'Purchase Cost', 'Cost Base'));
+          const dividend = cleanPrice(getField(s, 'Dividend', 'Dividends', 'Div'));
+          realizedGain += profitLoss;
+          realizedCost += cost;
+          soldDividends += dividend;
+          soldCount++;
+        });
+      }
+      const realizedGainPct = realizedCost > 0 ? (realizedGain / realizedCost) * 100 : 0;
+      const totalWealth = gain + realizedGain + totalDividends + soldDividends;
+      const totalCostAllTime = totalCost + realizedCost;
+      const totalWealthPct = totalCostAllTime > 0 ? (totalWealth / totalCostAllTime) * 100 : 0;
+
+      // All-Time Performance section (only show if we have sold holdings)
+      if (soldCount > 0) {
+        html += '<div class="card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.1)); border-color: var(--green); margin-bottom: 1.5rem;">';
+        html += '<h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.75rem; display: flex; align-items: center;"><span style="margin-right: 0.5rem;">💎</span> All-Time Performance</h3>';
+        html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem;">';
+        html += '<div class="stat-card" style="background: rgba(255, 255, 255, 0.05);"><p class="label" style="color: var(--text-secondary);">Current Holdings</p><p class="metric-md ' + (gain >= 0 ? 'gain' : 'loss') + '" style="margin-top: 0.25rem;">' + (gain >= 0 ? '+' : '') + '$' + fmt(Math.abs(gain)) + '</p><p style="font-size: 0.75rem; margin-top: 0.25rem; color: var(--text-secondary);">' + (gainPct >= 0 ? '+' : '') + gainPct.toFixed(1) + '%</p></div>';
+        html += '<div class="stat-card" style="background: rgba(255, 255, 255, 0.05);"><p class="label" style="color: var(--text-secondary);">Realized</p><p class="metric-md ' + (realizedGain >= 0 ? 'gain' : 'loss') + '" style="margin-top: 0.25rem;">' + (realizedGain >= 0 ? '+' : '') + '$' + fmt(Math.abs(realizedGain)) + '</p><p style="font-size: 0.75rem; margin-top: 0.25rem; color: var(--text-secondary);">' + soldCount + ' exits • ' + (realizedGainPct >= 0 ? '+' : '') + realizedGainPct.toFixed(1) + '%</p></div>';
+        html += '<div class="stat-card" style="background: rgba(255, 255, 255, 0.05);"><p class="label" style="color: var(--text-secondary);">Dividends</p><p class="metric-md gain" style="margin-top: 0.25rem;">$' + fmt(totalDividends + soldDividends) + '</p><p style="font-size: 0.75rem; margin-top: 0.25rem; color: var(--text-secondary);">Now: $' + fmt(totalDividends) + ' • Sold: $' + fmt(soldDividends) + '</p></div>';
+        html += '<div class="stat-card" style="background: rgba(34, 197, 94, 0.2); border-color: var(--green);"><p class="label" style="color: var(--green); font-weight: 600;">Total Wealth</p><p class="metric-lg" style="margin-top: 0.25rem; color: var(--green);">' + (totalWealth >= 0 ? '+' : '') + '$' + fmt(Math.abs(totalWealth)) + '</p><p style="font-size: 0.875rem; margin-top: 0.25rem; color: var(--green); font-weight: 600;">' + (totalWealthPct >= 0 ? '+' : '') + totalWealthPct.toFixed(1) + '%</p></div>';
+        html += '<div class="stat-card" style="background: rgba(255, 255, 255, 0.05);"><p class="label" style="color: var(--text-secondary);">Total Invested</p><p class="metric-md" style="margin-top: 0.25rem;">$' + fmt(totalCostAllTime) + '</p><p style="font-size: 0.75rem; margin-top: 0.25rem; color: var(--text-secondary);">Current: $' + fmt(totalCost) + '</p></div>';
+        html += '</div></div>';
+      }
+
+      // Portfolio Health section
+      html += '<div class="card" style="margin-bottom: 1.5rem;">';
+      html += '<h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.75rem; display: flex; align-items: center;"><span style="margin-right: 0.5rem;">📊</span> Portfolio Health</h3>';
+      html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem;">';
+      html += '<div class="stat-card"><p class="label">Volatility</p><p class="metric-md" style="margin-top: 0.25rem;">' + portfolioVol.toFixed(1) + '%</p><p style="font-size: 0.75rem; margin-top: 0.25rem; color: var(--text-muted);">Annualized</p></div>';
+      html += '<div class="stat-card" style="border-color: ' + (top5Pct > 50 ? 'var(--red)' : top5Pct > 40 ? '#eab308' : 'var(--border-color)') + ';"><p class="label">Top 5</p><p class="metric-md" style="margin-top: 0.25rem; color: ' + (top5Pct > 50 ? 'var(--red)' : top5Pct > 40 ? '#eab308' : 'var(--text-primary)') + ';">' + top5Pct.toFixed(1) + '%</p><p style="font-size: 0.75rem; margin-top: 0.25rem; color: var(--text-muted);">Target: <40%</p></div>';
+      html += '<div class="stat-card"><p class="label">Largest</p><p class="metric-md" style="margin-top: 0.25rem;">' + ((sortedByValue[0].value / totalValue) * 100).toFixed(1) + '%</p><p style="font-size: 0.75rem; margin-top: 0.25rem; color: var(--text-muted);">' + (sortedByValue[0].stock['Firm name'] || 'Unknown') + '</p></div>';
+      html += '<div class="stat-card" style="border-color: ' + (portfolioWithMetrics.filter(i => i.drawdown < -20).length > 0 ? '#f97316' : 'var(--border-color)') + ';"><p class="label">At Risk</p><p class="metric-md" style="margin-top: 0.25rem; color: ' + (portfolioWithMetrics.filter(i => i.drawdown < -20).length > 0 ? '#f97316' : 'var(--text-primary)') + ';">' + portfolioWithMetrics.filter(i => i.drawdown < -20).length + '</p><p style="font-size: 0.75rem; margin-top: 0.25rem; color: var(--text-muted);">Down >20%</p></div>';
+      html += '</div></div>';
+
+      // Benchmark Comparison — always render; show — when data not yet loaded
+      {
+        const hasBench = Object.keys(benchmarkReturns).length > 0;
+        // Portfolio return: normal green/red for positive/negative
+        const fmtPortRet = (v) => {
+          if (v === null || v === undefined || isNaN(v)) return '<span style="color:#ccc;">—</span>';
+          const col = v >= 0 ? 'var(--green)' : 'var(--red)';
+          return '<span style="color:' + col + ';font-weight:700;">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span>';
+        };
+        // Benchmark cell: red = you're beating it, green = it's beating you
+        const fmtBenchCell = (v, port) => {
+          if (v === null || v === undefined || isNaN(v)) return '<span style="color:#ccc;">—</span>';
+          const beating = port !== null && !isNaN(port) && port > v;
+          const col = beating ? 'var(--red)' : 'var(--green)';
+          return '<span style="color:' + col + ';font-weight:600;">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span>';
+        };
+
+        html += '<div class="card" style="margin-bottom:1.5rem;">';
+        html += '<h3 style="font-size:1.125rem;font-weight:600;margin-bottom:0.75rem;display:flex;align-items:center;justify-content:space-between;">';
+        html += '<span><span style="margin-right:0.5rem;">📈</span>Performance vs Benchmarks</span>';
+        if (!hasBench) html += '<span style="font-size:0.75rem;color:var(--text-muted);font-weight:400;">Benchmark data loading…</span>';
+        html += '</h3>';
+
+        html += '<div style="overflow-x:auto;">';
+        html += '<table style="width:100%;border-collapse:collapse;font-size:0.875rem;">';
+        html += '<thead><tr style="border-bottom:2px solid var(--border-color);">';
+        html += '<th style="text-align:left;padding:0.4rem 0.75rem 0.4rem 0;color:var(--text-muted);font-weight:500;">Period</th>';
+        html += '<th style="text-align:right;padding:0.4rem 0.5rem;font-weight:700;color:var(--accent);">Your Portfolio</th>';
+        html += '<th style="text-align:right;padding:0.4rem 0.5rem;color:var(--text-muted);font-weight:500;">NZX50</th>';
+        html += '<th style="text-align:right;padding:0.4rem 0.5rem;color:var(--text-muted);font-weight:500;">ASX200</th>';
+        html += '<th style="text-align:right;padding:0.4rem 0.5rem;color:var(--text-muted);font-weight:500;">S&P500</th>';
+        html += '</tr></thead><tbody>';
+
+        const dashPeriods = [
+          { label: '1 Day',   port: portfolioReturn1d,  key: '1d'  },
+          { label: '7 Days',  port: portfolioReturn7d,   key: '7d'  },
+          { label: '70 Days', port: portfolioReturn70d,  key: '70d' }
+        ];
+        dashPeriods.forEach(p => {
+          const nzx = hasBench && benchmarkReturns['NZX50']  ? benchmarkReturns['NZX50'][p.key]  : null;
+          const asx = hasBench && benchmarkReturns['ASX200'] ? benchmarkReturns['ASX200'][p.key] : null;
+          const sp5 = hasBench && benchmarkReturns['SP500']  ? benchmarkReturns['SP500'][p.key]  : null;
+          html += '<tr style="border-bottom:1px solid var(--border-color);">';
+          html += '<td style="padding:0.45rem 0.75rem 0.45rem 0;color:var(--text-secondary);font-weight:500;">' + p.label + '</td>';
+          html += '<td style="padding:0.45rem 0.5rem;text-align:right;">' + fmtPortRet(p.port) + '</td>';
+          html += '<td style="padding:0.45rem 0.5rem;text-align:right;">' + fmtBenchCell(nzx, p.port) + '</td>';
+          html += '<td style="padding:0.45rem 0.5rem;text-align:right;">' + fmtBenchCell(asx, p.port) + '</td>';
+          html += '<td style="padding:0.45rem 0.5rem;text-align:right;">' + fmtBenchCell(sp5, p.port) + '</td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+
+        if (hasBench) {
+          const beating70 = [];
+          if (benchmarkReturns['NZX50']  && portfolioReturn70d > benchmarkReturns['NZX50']['70d'])  beating70.push('NZX50');
+          if (benchmarkReturns['ASX200'] && portfolioReturn70d > benchmarkReturns['ASX200']['70d']) beating70.push('ASX200');
+          if (benchmarkReturns['SP500']  && portfolioReturn70d > benchmarkReturns['SP500']['70d'])  beating70.push('S&P500');
+          if (beating70.length > 0) {
+            html += '<p style="margin-top:0.6rem;font-size:0.8rem;color:var(--green);font-weight:600;">↑ Beating ' + beating70.join(', ') + ' over 70 days</p>';
+          } else {
+            html += '<p style="margin-top:0.6rem;font-size:0.8rem;color:var(--text-muted);">Trailing benchmarks on 70-day view</p>';
+          }
+        }
+        html += '</div></div>';
+      }
+
+      html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">';
+      html += '<div class="card"><h3 class="label" style="margin-bottom: 0.75rem; color: var(--green);">Daily Gainers</h3><div style="height:180px"><canvas id="topGainersChart"></canvas></div></div>';
+      html += '<div class="card"><h3 class="label" style="margin-bottom: 0.75rem; color: var(--red);">Daily Declines</h3><div style="height:180px"><canvas id="topLosersChart"></canvas></div></div>';
+      html += '</div>';
+
+      html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">';
+      html += '<div class="card"><h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem;">Daily Performance</h3><div style="height:220px"><canvas id="dailyPerformanceChart"></canvas></div></div>';
+      html += '<div class="card"><h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem;">Profit/Loss Trend (70 Days)</h3><div style="height:220px"><canvas id="valueTrendChart"></canvas></div></div>';
+      html += '</div>';
+
+      html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">';
+      html += '<div class="card"><h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem;">Gain/Loss Distribution</h3><div style="height:260px"><canvas id="gainLossChart"></canvas></div></div>';
+      html += '<div class="card"><h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem;">Top Holdings</h3><div style="height:260px"><canvas id="topHoldingsChart"></canvas></div></div>';
+      html += '</div>';
+
+      const withGains = portfolioData.map(s => ({ 
+        stock: s, 
+        gainPct: getStockGainPct(s, gainLossPeriod), 
+        gainDollar: getStockGainDollar(s, gainLossPeriod) 
+      }));
+      const topGDollar = [...withGains].filter(i => i.gainDollar > 0).sort((a, b) => b.gainDollar - a.gainDollar).slice(0, 3);
+      const topLDollar = [...withGains].filter(i => i.gainDollar < 0).sort((a, b) => a.gainDollar - b.gainDollar).slice(0, 3);
+      const topGPercent = [...withGains].filter(i => i.gainPct > 0).sort((a, b) => b.gainPct - a.gainPct).slice(0, 3);
+      const topLPercent = [...withGains].filter(i => i.gainPct < 0).sort((a, b) => a.gainPct - b.gainPct).slice(0, 3);
+
+      html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">';
+      html += '<div class="card" id="topGainersDollar"><h3 class="label" style="margin-bottom: 0.75rem; color: var(--green);">Top Gainers ($)</h3><div style="display: flex; gap: 0.25rem; margin-bottom: 0.75rem; flex-wrap: wrap;">';
+      ['day', '7days', '10weeks', 'purchase'].forEach(p => {
+        const label = p === 'day' ? '1D' : p === '7days' ? '7D' : p === '10weeks' ? '10W' : 'Total';
+        html += '<button onclick="setGainLossPeriod(\'' + p + '\')" class="btn-primary ' + (gainLossPeriod === p ? 'active' : '') + '" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">' + label + '</button>';
+      });
+      html += '</div>';
+      topGDollar.forEach(i => {
+        html += '<div style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);"><div style="display: flex; justify-between; align-items: center;"><div><p style="font-weight: 500; font-size: 0.875rem;">' + (i.stock['Firm name'] || 'Unknown') + '</p><p style="font-size: 0.75rem; color: var(--text-muted);">' + (i.stock['Ticker/Symbol'] || '') + '</p></div><p class="gain" style="font-weight: 600; font-size: 0.875rem;">+$' + fmt(i.gainDollar) + ' <span style="font-size: 0.75rem;">(+' + i.gainPct.toFixed(1) + '%)</span></p></div></div>';
+      });
+      html += '</div>';
+
+      html += '<div class="card" id="topLosersDollar"><h3 class="label" style="margin-bottom: 0.75rem; color: var(--red);">Top Losers ($)</h3><div style="display: flex; gap: 0.25rem; margin-bottom: 0.75rem; flex-wrap: wrap;">';
+      ['day', '7days', '10weeks', 'purchase'].forEach(p => {
+        const label = p === 'day' ? '1D' : p === '7days' ? '7D' : p === '10weeks' ? '10W' : 'Total';
+        html += '<button onclick="setGainLossPeriod(\'' + p + '\')" class="btn-primary ' + (gainLossPeriod === p ? 'active' : '') + '" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">' + label + '</button>';
+      });
+      html += '</div>';
+      topLDollar.forEach(i => {
+        html += '<div style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);"><div style="display: flex; justify-between; align-items: center;"><div><p style="font-weight: 500; font-size: 0.875rem;">' + (i.stock['Firm name'] || 'Unknown') + '</p><p style="font-size: 0.75rem; color: var(--text-muted);">' + (i.stock['Ticker/Symbol'] || '') + '</p></div><p class="loss" style="font-weight: 600; font-size: 0.875rem;">-$' + fmt(Math.abs(i.gainDollar)) + ' <span style="font-size: 0.75rem;">(' + i.gainPct.toFixed(1) + '%)</span></p></div></div>';
+      });
+      html += '</div></div>';
+      
+      html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">';
+      html += '<div class="card" id="topGainersPercent"><h3 class="label" style="margin-bottom: 0.75rem; color: var(--green);">Top Gainers (%)</h3><div style="display: flex; gap: 0.25rem; margin-bottom: 0.75rem; flex-wrap: wrap;">';
+      ['day', '7days', '10weeks', 'purchase'].forEach(p => {
+        const label = p === 'day' ? '1D' : p === '7days' ? '7D' : p === '10weeks' ? '10W' : 'Total';
+        html += '<button onclick="setGainLossPeriod(\'' + p + '\')" class="btn-primary ' + (gainLossPeriod === p ? 'active' : '') + '" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">' + label + '</button>';
+      });
+      html += '</div>';
+      topGPercent.forEach(i => {
+        html += '<div style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);"><div style="display: flex; justify-between; align-items: center;"><div><p style="font-weight: 500; font-size: 0.875rem;">' + (i.stock['Firm name'] || 'Unknown') + '</p><p style="font-size: 0.75rem; color: var(--text-muted);">' + (i.stock['Ticker/Symbol'] || '') + '</p></div><p class="gain" style="font-weight: 600; font-size: 0.875rem;">+' + i.gainPct.toFixed(1) + '% <span style="font-size: 0.75rem;">(+$' + fmt(i.gainDollar) + ')</span></p></div></div>';
+      });
+      html += '</div>';
+
+      html += '<div class="card" id="topLosersPercent"><h3 class="label" style="margin-bottom: 0.75rem; color: var(--red);">Top Losers (%)</h3><div style="display: flex; gap: 0.25rem; margin-bottom: 0.75rem; flex-wrap: wrap;">';
+      ['day', '7days', '10weeks', 'purchase'].forEach(p => {
+        const label = p === 'day' ? '1D' : p === '7days' ? '7D' : p === '10weeks' ? '10W' : 'Total';
+        html += '<button onclick="setGainLossPeriod(\'' + p + '\')" class="btn-primary ' + (gainLossPeriod === p ? 'active' : '') + '" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">' + label + '</button>';
+      });
+      html += '</div>';
+      topLPercent.forEach(i => {
+        html += '<div style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);"><div style="display: flex; justify-between; align-items: center;"><div><p style="font-weight: 500; font-size: 0.875rem;">' + (i.stock['Firm name'] || 'Unknown') + '</p><p style="font-size: 0.75rem; color: var(--text-muted);">' + (i.stock['Ticker/Symbol'] || '') + '</p></div><p class="loss" style="font-weight: 600; font-size: 0.875rem;">' + i.gainPct.toFixed(1) + '% <span style="font-size: 0.75rem;">(-$' + fmt(Math.abs(i.gainDollar)) + ')</span></p></div></div>';
+      });
+      html += '</div></div>';
+
+      let disp = portfolioData;
+      
+      // Apply location filter
+      if (locationFilter === 'nz') {
+        disp = disp.filter(s => {
+          const ticker = (s['Ticker/Symbol'] || '').toUpperCase();
+          return ticker.startsWith('NZE:');
+        });
+      } else if (locationFilter === 'au') {
+        disp = disp.filter(s => {
+          const ticker = (s['Ticker/Symbol'] || '').toUpperCase();
+          return ticker.startsWith('ASX:');
+        });
+      } else if (locationFilter === 'us') {
+        disp = disp.filter(s => {
+          const ticker = (s['Ticker/Symbol'] || '').toUpperCase();
+          return !ticker.startsWith('NZE:') && !ticker.startsWith('ASX:');
+        });
+      }
+      
+      // Apply FIF filter
+      if (fifFilter === 'fif') {
+        disp = disp.filter(s => {
+          const fifEligible = (s['FIF Eligible'] || '').toLowerCase().trim();
+          return fifEligible === 'yes' || fifEligible === 'y' || fifEligible === 'true' || fifEligible === '1';
+        });
+      }
+      else if (fifFilter === 'non-fif') {
+        disp = disp.filter(s => {
+          const fifEligible = (s['FIF Eligible'] || '').toLowerCase().trim();
+          return fifEligible === 'no' || fifEligible === 'n' || fifEligible === 'false' || fifEligible === '0' || fifEligible === '';
+        });
+      }
+      const sorted = sortStocks(disp);
+      
+      html += '<div><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;"><h2 style="font-size: 1.125rem; font-weight: 600;">Holdings (' + sorted.length + ')</h2><div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">';
+      html += '<select onchange="setLocationFilter(this.value)" style="padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem;">';
+      ['all', 'nz', 'au', 'us'].forEach(f => {
+        const label = f === 'all' ? 'All' : f === 'nz' ? 'NZ' : f === 'au' ? 'AU' : 'US';
+        html += '<option value="' + f + '" ' + (locationFilter === f ? 'selected' : '') + '>' + label + '</option>';
+      });
+      html += '</select><select onchange="setFifFilter(this.value)" style="padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem;">';
+      ['all', 'fif', 'non-fif'].forEach(f => {
+        const label = f === 'all' ? 'All Stocks' : f === 'fif' ? 'FIF' : 'Non-FIF';
+        html += '<option value="' + f + '" ' + (fifFilter === f ? 'selected' : '') + '>' + label + '</option>';
+      });
+      html += '</select><select onchange="setSortBy(this.value)" style="padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.875rem;">';
+      const sorts = [['value', 'Value'], ['gainPct', '% Gain'], ['lossPct', '% Loss'], ['gainValue', '$ Gain'], ['lossValue', '$ Loss'], ['dayChange', 'Day $'], ['name', 'Name']];
+      sorts.forEach(([v, l]) => {
+        html += '<option value="' + v + '" ' + (sortBy === v ? 'selected' : '') + '>Sort: ' + l + '</option>';
+      });
+      html += '</select></div></div><div style="display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">';
+      sorted.forEach(s => { html += renderStockCard(s); });
+      html += '</div></div>';
+      
+      html += '<div class="card" style="background: rgba(234, 179, 8, 0.1); border-color: #eab308; margin-top: 1.5rem;">';
+      html += '<h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: #eab308;">Verification</h3>';
+      html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; font-size: 0.875rem;">';
+      html += '<div><p style="color: var(--text-secondary);">Stocks:</p><p style="font-weight: 600;">' + portfolioData.length + '</p></div>';
+      html += '<div><p style="color: var(--text-secondary);">Value:</p><p style="font-weight: 600;">$' + fmt(totalValue, 2) + '</p></div>';
+      html += '<div><p style="color: var(--text-secondary);">Cost:</p><p style="font-weight: 600;">$' + fmt(totalCost, 2) + '</p></div>';
+      html += '<div><p style="color: var(--text-secondary);">Calc Gain:</p><p style="font-weight: 600;" class="' + (gain >= 0 ? 'gain' : 'loss') + '">' + (gain >= 0 ? '+' : '') + '$' + fmt(gain, 2) + '</p></div>';
+      
+      let gainers = 0, losers = 0, sumGains = 0, sumLosses = 0;
+      portfolioData.forEach(s => {
+        const g = getStockGain(s);
+        if (g > 0) { gainers++; sumGains += g; }
+        else if (g < 0) { losers++; sumLosses += g; }
+      });
+      html += '<div><p style="color: var(--text-secondary);">Gainers:</p><p style="font-weight: 600;" class="gain">' + gainers + '</p></div>';
+      html += '<div><p style="color: var(--text-secondary);">Gain Sum:</p><p style="font-weight: 600;" class="gain">+$' + fmt(sumGains, 2) + '</p></div>';
+      html += '<div><p style="color: var(--text-secondary);">Losers:</p><p style="font-weight: 600;" class="loss">' + losers + '</p></div>';
+      html += '<div><p style="color: var(--text-secondary);">Loss Sum:</p><p style="font-weight: 600;" class="loss">-$' + fmt(Math.abs(sumLosses), 2) + '</p></div>';
+      html += '</div></div>';
+      
+      html += '<div style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">';
+      html += '<button onclick="loadData(false)" class="btn-primary" style="background: var(--green); color: white; border-color: var(--green);">Refresh</button>';
+      html += '<button onclick="loadData(true)" class="btn-primary" style="background: #f97316; color: white; border-color: #f97316;">Force Reload</button>';
+      html += '<button onclick="clearCache()" class="btn-primary" style="background: var(--red); color: white; border-color: var(--red);">Clear Cache</button>';
+      html += '</div>';
+      
+      document.getElementById('content').innerHTML = html;
+      setTimeout(() => {
+        createPortfolioCharts();
+        createGainLossChart();
+        createValueTrendChart();
+        createTopHoldingsChart();
+        updateGainLossSections();
+
+        sorted.forEach(s => {
+          const ticker = s['Ticker/Symbol'] || '';
+          createStockCharts(ticker, 'chart7d-' + ticker, 'chart70d-' + ticker);
+        });
+      }, 100);
+    }
+
+    function renderStockCard(stock) {
+      const ticker = stock['Ticker/Symbol'] || '';
+      const curr = cleanPrice(stock['Current Price']);
+      const yesterday = cleanPrice(stock['Day-1']);
+      const day7price = cleanPrice(stock['Day-7']);
+      const purchasePrice = cleanPrice(stock['Purchase Price']);
+      const qty = parseFloat(stock.Quantity) || 0;
+      const val = getStockValue(stock);
+      const cost = getStockCost(stock);
+      const capitalGain = val - cost;
+      const dividend = cleanPrice(stock['Dividend']);
+      const totalReturn = capitalGain + dividend;
+      const totalReturnPct = cost > 0 ? (totalReturn / cost) * 100 : 0;
+
+      // Daily move
+      const dayChg = yesterday > 0 ? curr - yesterday : 0;
+      const dayChgPct = yesterday > 0 ? ((curr - yesterday) / yesterday) * 100 : 0;
+      const dayChgDollar = qty * dayChg;
+
+      // 7-day move
+      const sevenDayPct = day7price > 0 ? ((curr - day7price) / day7price) * 100 : null;
+      const sevenDayDollar = day7price > 0 ? qty * (curr - day7price) : null;
+
+      // 52-week range
+      let min52 = curr, max52 = curr;
+      for (let i = 1; i <= 70; i++) {
+        const p = cleanPrice(stock['Day-' + i]);
+        if (p > 0) { if (p < min52) min52 = p; if (p > max52) max52 = p; }
+      }
+      const range52 = max52 - min52;
+      const pos52 = range52 > 0 ? ((curr - min52) / range52) * 100 : 50;
+
+      const etf = isETF(stock);
+      const isPositive = totalReturn >= 0;
+
+      let h = '<div class="card-compact" style="border-color: ' + (isPositive ? 'var(--green)' : 'var(--red)') + '; border-width: 2px;">';
+
+      // ── Header: name + ticker stacked left · price right ──
+      h += '<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.625rem;">';
+      h += '<div style="min-width: 0; flex: 1; margin-right: 0.75rem;">';
+      h += '<div style="display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.2rem;">';
+      h += '<h3 style="font-weight: 700; font-size: 0.975rem; margin: 0; line-height: 1.2;">' + (stock['Firm name'] || 'Unknown') + '</h3>';
+      if (etf) h += '<span style="font-size: 0.58rem; font-weight: 700; background: #dbeafe; color: #1d4ed8; border-radius: 4px; padding: 1px 5px; letter-spacing: 0.05em; flex-shrink: 0;">ETF</span>';
+      h += '</div>';
+      h += '<p style="font-size: 0.72rem; color: var(--text-muted); margin: 0; font-weight: 500; text-align: left;">' + ticker + '</p>';
+      h += '</div>';
+      h += '<div style="text-align: right; flex-shrink: 0;">';
+      h += '<p style="font-size: 1.2rem; font-weight: 700; line-height: 1; color: var(--text-primary);">$' + fmt(curr, 2) + '</p>';
+      h += '<p style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem;">per share</p>';
+      h += '</div></div>';
+
+      // ── Total Return hero box ──
+      const retBg = isPositive ? 'var(--green-bg)' : 'var(--red-bg)';
+      const retBorder = isPositive ? 'var(--green)' : 'var(--red)';
+      const retDark = isPositive ? 'var(--green-dark)' : 'var(--red-dark)';
+      h += '<div style="padding: 0.625rem 0.75rem; border-radius: 8px; margin-bottom: 0.625rem; background: ' + retBg + '; border: 1px solid ' + retBorder + ';">';
+      h += '<div style="display: flex; justify-content: space-between; align-items: center;">';
+      h += '<div>';
+      h += '<p style="font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em; color: ' + retDark + '; text-transform: uppercase; margin-bottom: 0.2rem;">Total Return</p>';
+      h += '<p class="' + (isPositive ? 'gain' : 'loss') + '" style="font-weight: 800; font-size: 1.6rem; line-height: 1; letter-spacing: -0.03em;">' + (isPositive ? '+' : '') + '$' + fmt(totalReturn) + '</p>';
+      if (dividend > 0) {
+        h += '<p style="font-size: 0.67rem; color: var(--text-secondary); margin-top: 0.25rem;">Capital ' + (capitalGain >= 0 ? '+' : '') + '$' + fmt(capitalGain) + '&nbsp; +&nbsp; Div $' + fmt(dividend) + '</p>';
+      } else {
+        h += '<p style="font-size: 0.67rem; color: var(--text-secondary); margin-top: 0.25rem;">vs cost $' + fmt(cost) + '</p>';
+      }
+      h += '</div>';
+      h += '<div style="text-align: right;">';
+      h += '<p class="' + (isPositive ? 'gain' : 'loss') + '" style="font-weight: 800; font-size: 1.35rem; line-height: 1;">' + (totalReturnPct >= 0 ? '+' : '') + totalReturnPct.toFixed(1) + '%</p>';
+      h += '<p style="font-size: 0.67rem; color: var(--text-secondary); margin-top: 0.25rem;">Value $' + fmt(val) + '</p>';
+      h += '</div>';
+      h += '</div></div>';
+
+      // ── Today · 7-Day performance row ──
+      h += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.625rem;">';
+
+      // Today
+      if (yesterday > 0) {
+        const todayBg = dayChgPct >= 0 ? 'var(--green-bg)' : 'var(--red-bg)';
+        const todayBorder = dayChgPct >= 0 ? 'var(--green)' : 'var(--red)';
+        h += '<div style="padding: 0.5rem 0.625rem; border-radius: 7px; background: ' + todayBg + '; border: 1px solid ' + todayBorder + ';">';
+        h += '<p style="font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.2rem;">Today</p>';
+        h += '<p class="' + (dayChgPct >= 0 ? 'gain' : 'loss') + '" style="font-weight: 800; font-size: 1.5rem; line-height: 1; letter-spacing: -0.02em;">' + (dayChgPct >= 0 ? '+' : '') + dayChgPct.toFixed(2) + '%</p>';
+        h += '<p class="' + (dayChgDollar >= 0 ? 'gain' : 'loss') + '" style="font-size: 0.75rem; font-weight: 600; margin-top: 0.2rem;">' + (dayChgDollar >= 0 ? '+' : '') + '$' + fmt(dayChgDollar) + '</p>';
+        h += '</div>';
+      } else {
+        h += '<div style="padding: 0.5rem 0.625rem; border-radius: 7px; background: var(--bg-tertiary);">';
+        h += '<p style="font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.2rem;">Today</p>';
+        h += '<p style="font-size: 0.8rem; color: var(--text-muted);">—</p>';
+        h += '</div>';
+      }
+
+      // 7-Day
+      if (sevenDayPct !== null) {
+        const wkBg = sevenDayPct >= 0 ? 'var(--green-bg)' : 'var(--red-bg)';
+        const wkBorder = sevenDayPct >= 0 ? 'var(--green)' : 'var(--red)';
+        h += '<div style="padding: 0.5rem 0.625rem; border-radius: 7px; background: ' + wkBg + '; border: 1px solid ' + wkBorder + ';">';
+        h += '<p style="font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.2rem;">7-Day</p>';
+        h += '<p class="' + (sevenDayPct >= 0 ? 'gain' : 'loss') + '" style="font-weight: 800; font-size: 1.5rem; line-height: 1; letter-spacing: -0.02em;">' + (sevenDayPct >= 0 ? '+' : '') + sevenDayPct.toFixed(2) + '%</p>';
+        h += '<p class="' + (sevenDayDollar >= 0 ? 'gain' : 'loss') + '" style="font-size: 0.75rem; font-weight: 600; margin-top: 0.2rem;">' + (sevenDayDollar >= 0 ? '+' : '') + '$' + fmt(sevenDayDollar) + '</p>';
+        h += '</div>';
+      } else {
+        h += '<div style="padding: 0.5rem 0.625rem; border-radius: 7px; background: var(--bg-tertiary);">';
+        h += '<p style="font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.2rem;">7-Day</p>';
+        h += '<p style="font-size: 0.8rem; color: var(--text-muted);">—</p>';
+        h += '</div>';
+      }
+
+      h += '</div>';
+
+      // ── 52-week range bar ──
+      const bubbleColor = pos52 > 70 ? 'var(--green)' : pos52 < 30 ? 'var(--red)' : '#f59e0b';
+      h += '<div style="margin-bottom: 0.625rem;">';
+      h += '<div style="display: flex; justify-content: space-between; font-size: 0.67rem; color: var(--text-secondary); margin-bottom: 0.2rem; font-weight: 500;">';
+      h += '<span>52W Lo $' + fmt(min52, 2) + '</span>';
+      h += '<span style="color: var(--text-muted);">' + pos52.toFixed(0) + '% of range</span>';
+      h += '<span>Hi $' + fmt(max52, 2) + '</span>';
+      h += '</div>';
+      h += '<div style="position: relative; height: 16px; background: var(--bg-tertiary); border-radius: 8px;">';
+      h += '<div style="position: absolute; top: 50%; left: ' + Math.min(Math.max(pos52, 2), 98) + '%; transform: translate(-50%, -50%); width: 12px; height: 12px; background: ' + bubbleColor + '; border-radius: 50%; border: 2px solid var(--bg-secondary); box-shadow: 0 1px 3px rgba(0,0,0,.2);"></div>';
+      h += '</div></div>';
+
+      // ── Mini charts ──
+      h += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">';
+      h += '<div><p style="font-size: 0.62rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.2rem;">7-Day chart</p>';
+      h += '<div style="height:59px; width:100%; position:relative; overflow:hidden;"><canvas id="chart7d-' + ticker + '" style="display:block; box-sizing:border-box; height:59px; width:100%;"></canvas></div></div>';
+      h += '<div><p style="font-size: 0.62rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.2rem;">70-Day chart</p>';
+      h += '<div style="height:59px; width:100%; position:relative; overflow:hidden;"><canvas id="chart70d-' + ticker + '" style="display:block; box-sizing:border-box; height:59px; width:100%;"></canvas></div></div>';
+      h += '</div>';
+
+      // ── Details strip (no dividend — already in return box) ──
+      h += '<div style="padding: 0.3rem 0.5rem; background: var(--bg-tertiary); border-radius: 5px; font-size: 0.68rem; color: var(--text-muted);">';
+      h += qty + ' shares&nbsp; ·&nbsp; Buy $' + fmt(purchasePrice, 2) + '&nbsp; ·&nbsp; Cost $' + fmt(cost);
+      h += '</div>';
+
+      h += '</div>';
+      return h;
+    }
+
+    if (SHEET_ID && API_KEY) {
+      setTimeout(() => {
+        document.getElementById('priceSourceSelect').value = priceSource;
+        document.getElementById('updatePricesBtn').style.display = priceSource === 'yahoo' ? 'block' : 'none';
+      }, 100);
+      loadData(false);
+    }
+    
+    window.setSortBy = setSortBy;
+    window.setGainLossPeriod = setGainLossPeriod;
+    window.setFifFilter = setFifFilter;
+    window.setLocationFilter = setLocationFilter;
+    window.setActiveView = setActiveView;
+    window.setTableMetric = setTableMetric;
+    window.setTableSortBy = setTableSortBy;
+    window.loadData = loadData;
+    window.clearCache = clearCache;
+    window.dismissAlert = dismissAlert;
+  </script>
+</body>
+</html>
