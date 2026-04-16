@@ -755,7 +755,7 @@
       if (soldHoldingsData && soldHoldingsData.length > 0) {
         soldHoldingsData.forEach(s => {
           const profitLoss = cleanPrice(getField(s, 'Profit/Loss', 'Profit / Loss', 'P/L', 'Net Gain', 'Net Profit', 'Gain/Loss', 'Profit', 'Total Profit'));
-          const cost = cleanPrice(getField(s, 'Total Cost', 'Total Purchase Price', 'Cost', 'Purchase Cost', 'Cost Base'));
+          const cost = cleanPrice(getField(s, 'Purchase Price', 'Total Cost', 'Total Purchase Price', 'Cost', 'Purchase Cost', 'Cost Base'));
           const dividend = cleanPrice(getField(s, 'Dividend', 'Dividends', 'Div'));
           realizedGain += profitLoss; realizedCost += cost; soldDividends += dividend; soldCount++;
           if (profitLoss > 0) winningSales++;
@@ -789,7 +789,7 @@
       html += '<p class="text-xs text-gray-500 mb-1">Realised Gains (' + soldCount + ' exits)</p>';
       if (soldCount > 0) {
         html += '<p class="text-xl font-bold ' + rgColor + '">' + (realizedGain >= 0 ? '+' : '') + '$' + fmt(realizedGain) + '</p>';
-        html += '<p class="text-sm ' + rgColor + '">' + (realizedGainPct >= 0 ? '+' : '') + realizedGainPct.toFixed(1) + '% · ' + winningSales + '/' + soldCount + ' profitable</p>';
+        html += '<p class="text-sm ' + rgColor + '">' + (realizedCost > 0 ? (realizedGainPct >= 0 ? '+' : '') + realizedGainPct.toFixed(1) + '% · ' : '') + winningSales + '/' + soldCount + ' profitable</p>';
       } else {
         html += '<p class="text-xl font-bold text-gray-400">No exits yet</p>';
         html += '<p class="text-sm text-gray-400">Track in Sold Holdings sheet</p>';
@@ -1857,7 +1857,7 @@
       if (soldHoldingsData && soldHoldingsData.length > 0) {
         soldHoldingsData.forEach(s => {
           const profitLoss = cleanPrice(getField(s, 'Profit/Loss', 'Profit / Loss', 'P/L', 'Net Gain', 'Net Profit', 'Gain/Loss', 'Profit', 'Total Profit'));
-          const cost = cleanPrice(getField(s, 'Total Cost', 'Total Purchase Price', 'Cost', 'Purchase Cost', 'Cost Base'));
+          const cost = cleanPrice(getField(s, 'Purchase Price', 'Total Cost', 'Total Purchase Price', 'Cost', 'Purchase Cost', 'Cost Base'));
           const dividend = cleanPrice(getField(s, 'Dividend', 'Dividends', 'Div'));
           realizedGain += profitLoss;
           realizedCost += cost;
@@ -2185,16 +2185,18 @@
       h += '<div style="display: flex; justify-content: space-between; align-items: center;">';
       h += '<div>';
       h += '<p style="font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em; color: ' + retDark + '; text-transform: uppercase; margin-bottom: 0.2rem;">Total Return</p>';
-      h += '<p class="' + (isPositive ? 'gain' : 'loss') + '" style="font-weight: 800; font-size: 1.6rem; line-height: 1; letter-spacing: -0.03em;">' + (isPositive ? '+' : '') + '$' + fmt(totalReturn) + '</p>';
+      h += '<p class="' + (isPositive ? 'gain' : 'loss') + '" style="font-weight: 800; font-size: 1.35rem; line-height: 1; letter-spacing: -0.02em;">' + (isPositive ? '+' : '') + '$' + fmt(totalReturn) + '</p>';
+      h += '<p class="' + (isPositive ? 'gain' : 'loss') + '" style="font-weight: 700; font-size: 1rem; line-height: 1; margin-top: 0.2rem;">' + (totalReturnPct >= 0 ? '+' : '') + totalReturnPct.toFixed(1) + '%</p>';
       if (dividend > 0) {
-        h += '<p style="font-size: 0.67rem; color: var(--text-secondary); margin-top: 0.25rem;">Capital ' + (capitalGain >= 0 ? '+' : '') + '$' + fmt(capitalGain) + '&nbsp; +&nbsp; Div $' + fmt(dividend) + '</p>';
+        h += '<p style="font-size: 0.67rem; color: var(--text-secondary); margin-top: 0.25rem;">Cap ' + (capitalGain >= 0 ? '+' : '') + '$' + fmt(capitalGain) + ' + Div $' + fmt(dividend) + '</p>';
       } else {
         h += '<p style="font-size: 0.67rem; color: var(--text-secondary); margin-top: 0.25rem;">vs cost $' + fmt(cost) + '</p>';
       }
       h += '</div>';
       h += '<div style="text-align: right;">';
-      h += '<p class="' + (isPositive ? 'gain' : 'loss') + '" style="font-weight: 800; font-size: 1.35rem; line-height: 1;">' + (totalReturnPct >= 0 ? '+' : '') + totalReturnPct.toFixed(1) + '%</p>';
-      h += '<p style="font-size: 0.67rem; color: var(--text-secondary); margin-top: 0.25rem;">Value $' + fmt(val) + '</p>';
+      h += '<p style="font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em; color: ' + retDark + '; text-transform: uppercase; margin-bottom: 0.2rem;">Value</p>';
+      h += '<p style="font-weight: 800; font-size: 1.35rem; line-height: 1; color: var(--text-primary);">$' + fmt(val) + '</p>';
+      h += '<p style="font-size: 0.67rem; color: var(--text-secondary); margin-top: 0.2rem;">cost $' + fmt(cost) + '</p>';
       h += '</div>';
       h += '</div></div>';
 

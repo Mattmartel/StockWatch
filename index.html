@@ -376,14 +376,33 @@
     /* ── Loading ── */
     @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
     .loading { animation: pulse 1.5s ease-in-out infinite; }
+
+    /* ── Pull-to-refresh ── */
+    #ptrIndicator {
+      height: 0;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--green);
+      font-size: 1.5rem;
+      opacity: 0;
+      transition: height 0.1s, opacity 0.15s;
+    }
+    #ptrIndicator.triggered { animation: spin 0.8s linear infinite; }
   </style>
 </head>
 <body>
 
+  <div id="ptrIndicator">↻</div>
+
   <div class="header">
     <div class="logo">
       <div class="logo-icon">📈</div>
-      <span class="logo-text">Portfolio · Today</span>
+      <div>
+        <span class="logo-text">Portfolio · Today</span>
+        <div id="lastLoaded" style="font-family:'DM Mono',monospace; font-size:0.78rem; color:var(--dim); font-weight:500; margin-top:0.15rem;">—</div>
+      </div>
     </div>
     <div style="display:flex; gap:0.5rem; align-items:center;">
       <button class="refresh-btn" id="refreshBtn" title="Refresh data">↻</button>
@@ -427,6 +446,7 @@
     let SHEET_NAME = localStorage.getItem('sr_sheetName') || 'Sheet1';
     let portfolioData = [];
     let barChart = null;
+    const STALE_MS = 15 * 60 * 1000; // 15 minutes
 
     // ── Helpers ──────────────────────────────────────────
     function cleanPrice(p) {
@@ -493,6 +513,14 @@
       return window.innerWidth <= 600;
     }
 
+    function updateLastLoaded() {
+      const el = document.getElementById('lastLoaded');
+      if (!el) return;
+      const ts = parseInt(localStorage.getItem('sr_lastLoad') || '0');
+      if (!ts) { el.textContent = '—'; return; }
+      el.textContent = 'Updated ' + new Date(ts).toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' });
+    }
+
     // ── Render ───────────────────────────────────────────
     function render() {
       if (!portfolioData.length) return;
@@ -543,8 +571,7 @@
         </div>
       </div>`;
 
-      // ── Bar chart ──
-      // Sort: increases first (largest first), then decreases (least negative first)
+      // ── Sort: increases first (largest first), then decreases (least negative first) ──
       const sorted = [...stocks].sort((a, b) => {
         const ga = getDayChange(a).dollar;
         const gb = getDayChange(b).dollar;
@@ -554,12 +581,6 @@
         return gb - ga;
       });
       const mobile = isMobile();
-      // On mobile: horizontal bars, height scales with number of stocks
-      const chartHeight = mobile ? Math.max(200, sorted.length * 40) : 220;
-      html += `<div class="chart-section">
-        <div class="section-title">Today's Change Per Holding</div>
-        <div class="chart-wrap" style="height:${chartHeight}px"><canvas id="barChart"></canvas></div>
-      </div>`;
 
       // ── Holdings list ──
       html += '<div class="holdings-list">';
@@ -610,11 +631,15 @@
       });
       html += '</div>';
 
-      const lastLoad = parseInt(localStorage.getItem('sr_lastLoad') || '0');
-      const lastLoadStr = lastLoad ? new Date(lastLoad).toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' }) : '—';
-      html += `<div class="timestamp">Last loaded ${lastLoadStr}</div>`;
+      // ── Bar chart (below holdings so positions are visible immediately) ──
+      const chartHeight = mobile ? Math.max(200, sorted.length * 40) : 220;
+      html += `<div class="chart-section" style="margin-top:1.25rem;">
+        <div class="section-title">Today's Change Per Holding</div>
+        <div class="chart-wrap" style="height:${chartHeight}px"><canvas id="barChart"></canvas></div>
+      </div>`;
 
       document.getElementById('app').innerHTML = html;
+      updateLastLoaded();
       buildChart(sorted, mobile);
     }
 
@@ -773,6 +798,7 @@
           localStorage.setItem('sr_cache', JSON.stringify(portfolioData));
           localStorage.setItem('sr_lastLoad', now);
           render();
+          updateLastLoaded();
         } else {
           showError('No data found in sheet.');
         }
@@ -781,6 +807,7 @@
         if (cached) {
           portfolioData = JSON.parse(cached);
           render();
+          updateLastLoaded();
           document.getElementById('app').insertAdjacentHTML('beforeend',
             '<div class="timestamp" style="color:#f97316;">⚠ Using cached data — could not refresh</div>');
         } else {
@@ -844,21 +871,63 @@
       }, 250);
     });
 
+    // ── Tab focus refresh ─────────────────────────────────
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!SHEET_ID || !API_KEY) return;
+      const last = parseInt(localStorage.getItem('sr_lastLoad') || '0');
+      if ((Date.now() - last) > STALE_MS) loadData();
+    });
+
+    // ── Pull-to-refresh ───────────────────────────────────
+    let ptrStartY = 0;
+    let ptrPulling = false;
+    const PTR_THRESHOLD = 70;
+
+    document.addEventListener('touchstart', e => {
+      if (window.scrollY === 0) {
+        ptrStartY = e.touches[0].clientY;
+        ptrPulling = true;
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', e => {
+      if (!ptrPulling) return;
+      const delta = e.touches[0].clientY - ptrStartY;
+      if (delta > 0 && window.scrollY === 0) {
+        const ind = document.getElementById('ptrIndicator');
+        const progress = Math.min(delta / PTR_THRESHOLD, 1);
+        ind.style.height = (progress * 44) + 'px';
+        ind.style.opacity = progress;
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', e => {
+      if (!ptrPulling) return;
+      ptrPulling = false;
+      const delta = e.changedTouches[0].clientY - ptrStartY;
+      const ind = document.getElementById('ptrIndicator');
+      ind.style.height = '0';
+      ind.style.opacity = '0';
+      if (delta >= PTR_THRESHOLD && window.scrollY === 0) {
+        if (SHEET_ID && API_KEY) loadData();
+        else openModal();
+      }
+    });
+
     // ── Boot ──────────────────────────────────────────────
     if (SHEET_ID && API_KEY) {
       const lastLoad = parseInt(localStorage.getItem('sr_lastLoad') || '0');
-      const oneHour  = 60 * 60 * 1000;
-      const stale    = (Date.now() - lastLoad) > oneHour;
+      const stale    = (Date.now() - lastLoad) > STALE_MS;
 
       if (stale) {
-        // Data is old — fetch fresh from Sheets
         loadData();
       } else {
-        // Recent data — render from cache immediately, no network call
         const cached = localStorage.getItem('sr_cache');
         if (cached) {
           portfolioData = JSON.parse(cached);
           render();
+          updateLastLoaded();
         } else {
           loadData();
         }
@@ -867,7 +936,7 @@
       // Auto-refresh check every 5 minutes while page is open
       setInterval(() => {
         const last = parseInt(localStorage.getItem('sr_lastLoad') || '0');
-        if ((Date.now() - last) > oneHour) loadData();
+        if ((Date.now() - last) > STALE_MS) loadData();
       }, 5 * 60 * 1000);
     }
   </script>
