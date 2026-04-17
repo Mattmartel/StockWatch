@@ -893,6 +893,42 @@
       const goalPct = Math.min((totalWealth / GOAL) * 100, 100);
       const goalBarColor = goalPct >= 75 ? '#16a34a' : goalPct >= 40 ? '#2563eb' : '#7c3aed';
 
+      // ── Growth metrics from Wealth Log ──────────────────────────────────────
+      const wlNow = new Date();
+      const monthsAgoDate = n => { const d = new Date(wlNow); d.setMonth(d.getMonth() - n); return d; };
+      const closestPoint = target => wlAllRows.length === 0 ? null :
+        wlAllRows.reduce((b, p) => !b || Math.abs(p.date - target) < Math.abs(b.date - target) ? p : b, null);
+
+      const p3m  = closestPoint(monthsAgoDate(3));
+      const p6m  = closestPoint(monthsAgoDate(6));
+      const p12m = closestPoint(monthsAgoDate(12));
+
+      const growthVs = p => {
+        if (!p) return null;
+        const diff = totalWealth - p.total;
+        const pct  = p.total > 0 ? (diff / p.total) * 100 : 0;
+        return { diff, pct, from: p.date, fromTotal: p.total };
+      };
+      const g3m  = growthVs(p3m);
+      const g6m  = growthVs(p6m);
+      const g12m = growthVs(p12m);
+
+      // $1M projection — uses 6-month average monthly growth
+      let monthlyGrowthRate = 0, projectionDate = null, monthsToGoal = null;
+      if (p6m && p6m.total > 0) {
+        const monthsElapsed = (wlNow - p6m.date) / (1000 * 60 * 60 * 24 * 30.4375);
+        if (monthsElapsed > 0) {
+          monthlyGrowthRate = (totalWealth - p6m.total) / monthsElapsed;
+          if (monthlyGrowthRate > 0 && totalWealth < GOAL) {
+            monthsToGoal = Math.ceil((GOAL - totalWealth) / monthlyGrowthRate);
+            if (monthsToGoal > 0 && monthsToGoal < 360) {
+              projectionDate = new Date(wlNow);
+              projectionDate.setMonth(projectionDate.getMonth() + monthsToGoal);
+            }
+          }
+        }
+      }
+
       // ── $1M Retirement Goal header ──────────────────────────────────────────
       html += '<div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:white;border-radius:16px;padding:1.75rem;margin-bottom:1.5rem;">';
       html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.25rem;">';
@@ -922,6 +958,41 @@
         html += '</div>';
         html += '<div style="position:relative;height:220px;"><canvas id="wealthJourneyChart"></canvas></div>';
         html += '</div>';
+      }
+
+      // ── Growth summary + projection ─────────────────────────────────────────
+      {
+        const gCard = (label, g) => {
+          if (!g) return '<div class="card" style="padding:0.85rem;opacity:0.45;"><div style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:0.4rem;">' + label + '</div><div style="font-size:1rem;font-weight:800;color:var(--text-muted);">—</div><div style="font-size:0.72rem;color:var(--text-muted);">No data</div></div>';
+          const col = g.diff >= 0 ? 'var(--green)' : 'var(--red)';
+          const mo  = g.from.toLocaleDateString('en-NZ', { month: 'short', year: '2-digit' });
+          return '<div class="card" style="padding:0.85rem;">'
+            + '<div style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:0.4rem;">' + label + '</div>'
+            + '<div style="font-size:1.05rem;font-weight:800;color:' + col + ';">' + (g.diff >= 0 ? '+' : '') + '$' + fmt(g.diff) + '</div>'
+            + '<div style="font-size:0.72rem;color:' + col + ';">' + (g.pct >= 0 ? '+' : '') + g.pct.toFixed(1) + '% since ' + mo + '</div>'
+            + '</div>';
+        };
+        html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1rem;">';
+        html += gCard('3 months', g3m);
+        html += gCard('6 months', g6m);
+        html += gCard('12 months', g12m);
+        html += '</div>';
+
+        if (projectionDate) {
+          const yrs = Math.floor(monthsToGoal / 12);
+          const mos = monthsToGoal % 12;
+          const timeStr = yrs > 0 ? yrs + 'y ' + mos + 'm' : mos + ' months';
+          const projStr = projectionDate.toLocaleDateString('en-NZ', { month: 'long', year: 'numeric' });
+          const perMo = Math.round(monthlyGrowthRate).toLocaleString('en-NZ');
+          html += '<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:10px;padding:0.9rem 1rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">';
+          html += '<div><span style="font-size:0.75rem;color:#15803d;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">$1M Projection</span>';
+          html += '<div style="font-size:1.1rem;font-weight:800;color:#14532d;margin-top:0.2rem;">' + projStr + ' <span style="font-size:0.85rem;font-weight:500;color:#16a34a;">(' + timeStr + ' away)</span></div>';
+          html += '<div style="font-size:0.75rem;color:#16a34a;margin-top:0.1rem;">Based on +$' + perMo + '/month avg over last 6 months</div></div>';
+          html += '<div style="font-size:2rem;">🎯</div>';
+          html += '</div>';
+        } else if (wlAllRows.length > 0 && monthlyGrowthRate <= 0) {
+          html += '<div style="background:#fef9c3;border:1px solid #fde047;border-radius:10px;padding:0.8rem 1rem;margin-bottom:1.5rem;font-size:0.85rem;color:#854d0e;">Growth trend is flat or negative over the last 6 months — projection unavailable.</div>';
+        }
       }
 
       // ── Wealth Pillars (auto-fit, wraps to 2 or 3 per row on mobile/desktop) ──
@@ -1213,10 +1284,10 @@
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        // Historical points — all WL rows before the current calendar month
-        // (uses shared WL_COLS, parseWLDate, parseAmt, wlRowTotal defined above)
+        // Historical points — all WL rows strictly before today
+        // (includes any date in the past, even if in the current month)
         const histPoints = wlAllRows
-          .filter(p => p.date < startOfMonth)
+          .filter(p => p.date < now)
           .map(r => {
             const obj = { date: r.date, total: r.total };
             WL_COLS.forEach(c => { obj[c.key] = parseAmt(r.raw[c.key]); });
@@ -1244,8 +1315,8 @@
           const allVals   = totals.filter(Boolean);
           if (allVals.length === 0) return;
 
-          const yMin = Math.min(...allVals) * 0.97;
-          const yMax = Math.max(Math.max(...allVals) * 1.005, GOAL * 1.005);
+          const yMin = 0;
+          const yMax = Math.max(Math.max(...allVals) * 1.05, GOAL * 1.05);
 
           const pointRadii  = allPoints.map(p => p.isToday ? 7 : 4);
           const pointColors = allPoints.map(p => p.isToday ? '#16a34a' : '#2563eb');
