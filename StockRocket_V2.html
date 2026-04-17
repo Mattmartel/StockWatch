@@ -621,7 +621,7 @@
                 const obj = {};
                 wlHeaders.forEach((h, i) => { obj[h] = row[i] || ''; });
                 return obj;
-              }).filter(r => r['Date'] && r['Grand Total']);
+              }).filter(r => r['Date']);
             }
           } catch (e) {
             console.log('Could not load Wealth Log sheet (optional):', e);
@@ -881,7 +881,9 @@
 
       html += pillarCard('KiwiSaver',  '🥝', kiwiValue,      kiwiGain,      kiwiCost,      '#7c3aed', kiwiNote,      false);
       html += pillarCard('InvestNow',  '📈', investNowValue, investNowGain, investNowCost, '#2563eb', investNowNote, false);
-      html += pillarCard('Milford',    '🏔️', milfordValue,   milfordGain,   milfordCost,   '#ea580c', milfordNote,   false);
+      if (milfordValue > 0 || milfordRows.length > 0) {
+        html += pillarCard('Milford', '🏔️', milfordValue, milfordGain, milfordCost, '#ea580c', milfordNote, false);
+      }
       html += pillarCard('Shares',     '📊', totalValue,     gain,          totalCost,     '#16a34a', stkNote,       true);
 
       // Cash pillar — no gain/loss
@@ -1128,6 +1130,20 @@
       // ── Draw wealth journey chart after DOM is ready ──────────────────────
       // History = Wealth Log rows before current month; today = live computed values
       {
+        // Column definitions — must match Wealth Log sheet headers exactly
+        // short = tooltip label, liveKey = property set on todayPoint
+        const WL_COLS = [
+          { key: 'Milford KiwiSaver Active Growth',       short: 'KiwiSaver (Milford)' },
+          { key: 'Pie Australasian Dividend Growth Fund', short: 'Pie Australasian'    },
+          { key: 'Salt Long Short Fund',                  short: 'Salt Long Short'     },
+          { key: 'Sharesies',                             short: 'Sharesies'           },
+          { key: 'Sharesies Cash',                        short: 'Sharesies Cash'      },
+          { key: 'InvestNow Cash',                        short: 'InvestNow Cash'      },
+          { key: 'Revolut',                               short: 'Revolut'             },
+          { key: 'ANZ account',                           short: 'ANZ'                 },
+          { key: 'Other investments',                     short: 'Other'               },
+        ];
+
         const parseWLDate = s => {
           if (!s) return null;
           const clean = String(s).trim();
@@ -1140,128 +1156,144 @@
           const d = new Date(clean);
           return isNaN(d.getTime()) ? null : d;
         };
-        const parseAmt = v => { if (!v) return null; const n = parseFloat(String(v).replace(/[$,\s]/g, '')); return isNaN(n) ? null : n; };
+        const parseAmt = v => { if (!v && v !== 0) return null; const n = parseFloat(String(v).replace(/[$,\s]/g, '')); return isNaN(n) ? null : n; };
 
-        // Grand Total for a Wealth Log row = explicit Grand Total OR sum of components
-        const wlTotal = r => {
+        // Grand Total = explicit Grand Total column OR sum of all WL_COLS components
+        const wlRowTotal = r => {
           const gt = parseAmt(r['Grand Total']);
           if (gt) return gt;
-          const cols = ['Shares','InvestNow','Milford','KiwiSaver','Super','Cash'];
-          const sum = cols.reduce((s, c) => s + (parseAmt(r[c]) || 0), 0);
+          const sum = WL_COLS.reduce((s, c) => s + (parseAmt(r[c.key]) || 0), 0);
           return sum > 0 ? sum : null;
         };
 
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        // Historical points: only entries BEFORE the current calendar month
+        // Historical points — only rows BEFORE current calendar month
         const histPoints = (wealthLogData || [])
-          .map(r => ({ date: parseWLDate(r['Date']), total: wlTotal(r),
-            shares: parseAmt(r['Shares']), investNow: parseAmt(r['InvestNow']),
-            milford: parseAmt(r['Milford']), kiwi: parseAmt(r['KiwiSaver']),
-            super_: parseAmt(r['Super']), cash: parseAmt(r['Cash']) }))
+          .map(r => {
+            const obj = { date: parseWLDate(r['Date']), total: wlRowTotal(r) };
+            WL_COLS.forEach(c => { obj[c.key] = parseAmt(r[c.key]); });
+            return obj;
+          })
           .filter(p => p.date && p.total && p.date < startOfMonth)
           .sort((a, b) => a.date - b.date);
 
-        // Today's live point — shares from live data, managed funds from sheet
-        const todayShares    = totalValue;
-        const todayInvestNow = investNowValue;
-        const todayMilford   = milfordValue;
-        const todayKiwi      = kiwiValue;
-        const todayCash      = cashValue;
-        // Super: use most recent Wealth Log entry's Super value (can't get live)
-        const lastSuper = [...histPoints].reverse().find(p => p.super_ !== null)?.super_ || 0;
-        const todayTotal = todayShares + todayInvestNow + todayMilford + todayKiwi + todayCash + lastSuper;
+        // ── Live "today" point ── map each WL column to a live data source
+        const mfSumBy = namePart => (managedFundsData || []).filter(r =>
+          (r['Fund Name'] || '').toLowerCase().includes(namePart.toLowerCase())
+        ).reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
 
-        const todayPoint = {
-          date: now, total: todayTotal, isToday: true,
-          shares: todayShares, investNow: todayInvestNow,
-          milford: todayMilford, kiwi: todayKiwi, super_: lastSuper, cash: todayCash
-        };
+        const todayMap = {};
+        todayMap['Milford KiwiSaver Active Growth']       = kiwiValue;
+        todayMap['Pie Australasian Dividend Growth Fund'] = mfSumBy('pie');
+        todayMap['Salt Long Short Fund']                  = mfSumBy('salt');
+        todayMap['Sharesies']                             = totalValue;  // LIVE — updates daily
+        todayMap['Sharesies Cash']                        = (managedFundsData || []).filter(r =>
+          (r['Fund Name'] || '').toLowerCase().includes('sharesies') &&
+          (r['Type'] || '').toLowerCase().includes('cash')
+        ).reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
+        todayMap['InvestNow Cash']                        = (managedFundsData || []).filter(r =>
+          (r['Fund Name'] || '').toLowerCase().includes('investnow') &&
+          (r['Type'] || '').toLowerCase().includes('cash')
+        ).reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
+        todayMap['Revolut']                               = mfSumBy('revolut');
+        todayMap['ANZ account']                           = (managedFundsData || []).filter(r =>
+          ((r['Fund Name'] || '').toLowerCase().includes('anz') ||
+           (r['Provider']  || '').toLowerCase().includes('anz')) &&
+          !(r['Type'] || '').toLowerCase().includes('kiwi')
+        ).reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
+        todayMap['Other investments']                     = (managedFundsData || []).filter(r => {
+          const fn = (r['Fund Name'] || '').toLowerCase();
+          const pv = (r['Provider']  || '').toLowerCase();
+          const ty = (r['Type']      || '').toLowerCase();
+          return !fn.includes('pie') && !fn.includes('salt') && !fn.includes('revolut') &&
+                 !fn.includes('anz') && !pv.includes('anz') &&
+                 !fn.includes('sharesies') && !fn.includes('investnow') &&
+                 !fn.includes('milford') && !ty.includes('kiwi') && !ty.includes('cash');
+        }).reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
+
+        const todayTotal = WL_COLS.reduce((s, c) => s + (todayMap[c.key] || 0), 0);
+        const todayPoint = { date: now, total: todayTotal, isToday: true, ...todayMap };
 
         const allPoints = [...histPoints, todayPoint];
 
-        if (allPoints.length > 0 && document.getElementById('wealthJourneyChart')) {
-          setTimeout(() => {
-            const canvas = document.getElementById('wealthJourneyChart');
-            if (!canvas) return;
+        setTimeout(() => {
+          const canvas = document.getElementById('wealthJourneyChart');
+          if (!canvas) return;
 
-            const labels = allPoints.map(p => p.isToday ? 'Today' :
-              p.date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: '2-digit' }));
-            const totals = allPoints.map(p => p.total);
+          const labels    = allPoints.map(p => p.isToday ? 'Today' :
+            p.date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: '2-digit' }));
+          const totals    = allPoints.map(p => p.total);
+          const allVals   = totals.filter(Boolean);
+          if (allVals.length === 0) return;
 
-            const allVals = totals.filter(Boolean);
-            const yMin = Math.min(...allVals) * 0.97;
-            const yMax = Math.max(Math.max(...allVals) * 1.005, GOAL * 1.005);
+          const yMin = Math.min(...allVals) * 0.97;
+          const yMax = Math.max(Math.max(...allVals) * 1.005, GOAL * 1.005);
 
-            // Point styles: today gets a larger highlighted dot
-            const pointRadii  = allPoints.map(p => p.isToday ? 7 : 4);
-            const pointColors = allPoints.map(p => p.isToday ? '#16a34a' : '#2563eb');
+          const pointRadii  = allPoints.map(p => p.isToday ? 7 : 4);
+          const pointColors = allPoints.map(p => p.isToday ? '#16a34a' : '#2563eb');
 
-            new Chart(canvas, {
-              type: 'line',
-              data: {
-                labels,
-                datasets: [{
-                  label: 'Total Wealth',
-                  data: totals,
-                  borderColor: '#2563eb',
-                  backgroundColor: 'rgba(37,99,235,0.07)',
-                  fill: true,
-                  tension: 0.35,
-                  pointRadius: pointRadii,
-                  pointBackgroundColor: pointColors,
-                  pointHoverRadius: 8,
-                  borderWidth: 2.5
-                }]
-              },
-              options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: {
-                      label: ctx => {
-                        const p = allPoints[ctx.dataIndex];
-                        const lines = [' Total  $' + Math.round(ctx.raw).toLocaleString('en-NZ')];
-                        if (p.shares   != null) lines.push(' Shares  $' + Math.round(p.shares).toLocaleString('en-NZ') + (p.isToday ? ' ↑live' : ''));
-                        if (p.investNow != null) lines.push(' InvestNow  $' + Math.round(p.investNow).toLocaleString('en-NZ'));
-                        if (p.milford  != null) lines.push(' Milford  $' + Math.round(p.milford).toLocaleString('en-NZ'));
-                        if (p.kiwi     != null) lines.push(' KiwiSaver  $' + Math.round(p.kiwi).toLocaleString('en-NZ'));
-                        if (p.super_   != null && p.super_ > 0) lines.push(' Super  $' + Math.round(p.super_).toLocaleString('en-NZ'));
-                        if (p.cash     != null && p.cash   > 0) lines.push(' Cash  $' + Math.round(p.cash).toLocaleString('en-NZ'));
-                        return lines;
-                      }
-                    }
-                  },
-                  annotation: {
-                    annotations: {
-                      goal: {
-                        type: 'line', yMin: GOAL, yMax: GOAL,
-                        borderColor: '#7c3aed', borderWidth: 1.5, borderDash: [6, 4],
-                        label: {
-                          display: true, content: '$1M Goal', position: 'end',
-                          backgroundColor: 'rgba(124,58,237,0.12)', color: '#7c3aed',
-                          font: { size: 11, weight: '600' }, padding: { x: 6, y: 3 }
+          new Chart(canvas, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [{
+                label: 'Total Wealth',
+                data: totals,
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37,99,235,0.07)',
+                fill: true, tension: 0.35,
+                pointRadius: pointRadii, pointBackgroundColor: pointColors,
+                pointHoverRadius: 8, borderWidth: 2.5
+              }]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              interaction: { mode: 'index', intersect: false },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: ctx => {
+                      const p = allPoints[ctx.dataIndex];
+                      const lines = ['  Total  $' + Math.round(ctx.raw).toLocaleString('en-NZ')];
+                      WL_COLS.forEach(c => {
+                        const val = p[c.key];
+                        if (val != null && val > 0) {
+                          const live = (c.key === 'Sharesies' && p.isToday) ? ' ↑live' : '';
+                          lines.push('  ' + c.short + '  $' + Math.round(val).toLocaleString('en-NZ') + live);
                         }
-                      }
+                      });
+                      return lines;
                     }
                   }
                 },
-                scales: {
-                  x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, maxRotation: 45 } },
-                  y: {
-                    min: yMin, max: yMax,
-                    grid: { color: 'rgba(0,0,0,0.04)' },
-                    ticks: { font: { size: 10 }, callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(2)+'M' : Math.round(v/1000)+'k') }
+                annotation: {
+                  annotations: {
+                    goal: {
+                      type: 'line', yMin: GOAL, yMax: GOAL,
+                      borderColor: '#7c3aed', borderWidth: 1.5, borderDash: [6, 4],
+                      label: {
+                        display: true, content: '$1M Goal', position: 'end',
+                        backgroundColor: 'rgba(124,58,237,0.12)', color: '#7c3aed',
+                        font: { size: 11, weight: '600' }, padding: { x: 6, y: 3 }
+                      }
+                    }
                   }
                 }
+              },
+              scales: {
+                x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+                y: {
+                  min: yMin, max: yMax,
+                  grid: { color: 'rgba(0,0,0,0.04)' },
+                  ticks: { font: { size: 10 }, callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(2)+'M' : Math.round(v/1000)+'k') }
+                }
               }
-            });
-          }, 100);
-        }
+            }
+          });
+        }, 100);
       }
     }
 
