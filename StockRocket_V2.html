@@ -1564,6 +1564,27 @@
       }
     }
 
+    // Remove single-point spikes: any price >25% away from the avg of its neighbours is a bad cell
+    function filterPriceOutliers(prices) {
+      if (prices.length < 4) return prices;
+      return prices.filter((p, i) => {
+        if (i === 0 || i === prices.length - 1) return true;
+        const neighbourAvg = (prices[i - 1] + prices[i + 1]) / 2;
+        return neighbourAvg === 0 || Math.abs(p - neighbourAvg) / neighbourAvg < 0.25;
+      });
+    }
+
+    // Tight y-axis bounds — fills the chart height with the actual price movement
+    function chartBounds(prices, purchasePrice) {
+      const vals = prices.filter(p => p > 0);
+      if (purchasePrice > 0) vals.push(purchasePrice);
+      if (vals.length === 0) return {};
+      const lo = Math.min(...vals);
+      const hi = Math.max(...vals);
+      const pad = Math.max((hi - lo) * 0.15, hi * 0.003); // at least 0.3% padding each side
+      return { min: lo - pad, max: hi + pad };
+    }
+
     function createStockCharts(ticker, canvasId7d, canvasId70d) {
       const stock = portfolioData.find(s => s['Ticker/Symbol'] === ticker);
       if (!stock) return;
@@ -1571,130 +1592,88 @@
       const curr = cleanPrice(stock['Current Price']);
       const purchasePrice = cleanPrice(stock['Purchase Price']);
 
+      const miniChartOptions = (bounds, labelFn) => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: 0 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            enabled: true,
+            callbacks: {
+              label: (ctx) => ctx.datasetIndex === 0
+                ? 'Price: $' + fmt(ctx.parsed.y, 2)
+                : 'Purchase: $' + fmt(ctx.parsed.y, 2)
+            }
+          }
+        },
+        scales: {
+          y: { display: false, ...bounds },
+          x: { display: false }
+        }
+      });
+
       // 7-day chart
       const canvas7d = document.getElementById(canvasId7d);
       if (canvas7d) {
-        const prices7d = [curr];
+        const raw7d = [curr];
         for (let i = 1; i <= 7; i++) {
           const p = cleanPrice(stock['Day-' + i]);
-          if (p > 0) prices7d.unshift(p);
+          if (p > 0) raw7d.unshift(p);
         }
+        const prices7d = filterPriceOutliers(raw7d);
+        const bounds7d = chartBounds(prices7d, purchasePrice);
 
         const chartKey7d = ticker + '-7d';
         if (stockCharts[chartKey7d]) stockCharts[chartKey7d].destroy();
-
         stockCharts[chartKey7d] = new Chart(canvas7d, {
           type: 'line',
           data: {
             labels: prices7d.map((_, i) => i === prices7d.length - 1 ? 'Now' : '-' + (prices7d.length - 1 - i) + 'd'),
             datasets: [{
-              label: 'Price',
               data: prices7d,
               borderColor: 'rgb(59,130,246)',
               backgroundColor: 'rgba(59,130,246,0.1)',
-              borderWidth: 2,
-              fill: true,
-              tension: 0.3,
-              pointRadius: 2
+              borderWidth: 2, fill: true, tension: 0.3, pointRadius: 2
             }, {
-              label: 'Purchase Price',
               data: prices7d.map(() => purchasePrice),
               borderColor: 'rgb(156,163,175)',
-              borderWidth: 1,
-              borderDash: [5, 5],
-              fill: false,
-              pointRadius: 0
+              borderWidth: 1, borderDash: [5,5], fill: false, pointRadius: 0
             }]
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: {
-              padding: 0
-            },
-            plugins: { 
-              legend: { display: false }, 
-              tooltip: { 
-                enabled: true,
-                callbacks: {
-                  label: (context) => {
-                    if (context.datasetIndex === 0) {
-                      return 'Price: $' + fmt(context.parsed.y, 2);
-                    }
-                    return 'Purchase: $' + fmt(context.parsed.y, 2);
-                  }
-                }
-              } 
-            },
-            scales: {
-              y: { display: false },
-              x: { display: false }
-            }
-          }
+          options: miniChartOptions(bounds7d)
         });
       }
 
       // 70-day chart
       const canvas70d = document.getElementById(canvasId70d);
       if (canvas70d) {
-        const prices70d = [curr];
+        const raw70d = [curr];
         for (let i = 1; i <= 70; i++) {
           const p = cleanPrice(stock['Day-' + i]);
-          if (p > 0) prices70d.unshift(p);
+          if (p > 0) raw70d.unshift(p);
         }
+        const prices70d = filterPriceOutliers(raw70d);
+        const bounds70d = chartBounds(prices70d, purchasePrice);
 
         const chartKey70d = ticker + '-70d';
         if (stockCharts[chartKey70d]) stockCharts[chartKey70d].destroy();
-
         stockCharts[chartKey70d] = new Chart(canvas70d, {
           type: 'line',
           data: {
-            labels: prices70d.map((_, i) => ''),
+            labels: prices70d.map(() => ''),
             datasets: [{
-              label: 'Price',
               data: prices70d,
               borderColor: 'rgb(34,197,94)',
               backgroundColor: 'rgba(34,197,94,0.1)',
-              borderWidth: 2,
-              fill: true,
-              tension: 0.3,
-              pointRadius: 2,
-              pointHoverRadius: 4
+              borderWidth: 2, fill: true, tension: 0.3, pointRadius: 2, pointHoverRadius: 4
             }, {
-              label: 'Purchase Price',
               data: prices70d.map(() => purchasePrice),
               borderColor: 'rgb(156,163,175)',
-              borderWidth: 1,
-              borderDash: [5, 5],
-              fill: false,
-              pointRadius: 0
+              borderWidth: 1, borderDash: [5,5], fill: false, pointRadius: 0
             }]
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: {
-              padding: 0
-            },
-            plugins: { 
-              legend: { display: false }, 
-              tooltip: { 
-                enabled: true,
-                callbacks: {
-                  label: (context) => {
-                    if (context.datasetIndex === 0) {
-                      return 'Price: $' + fmt(context.parsed.y, 2);
-                    }
-                    return 'Purchase: $' + fmt(context.parsed.y, 2);
-                  }
-                }
-              } 
-            },
-            scales: {
-              y: { display: false },
-              x: { display: false }
-            }
-          }
+          options: miniChartOptions(bounds70d)
         });
       }
     }
