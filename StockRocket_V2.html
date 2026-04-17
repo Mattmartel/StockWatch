@@ -205,6 +205,7 @@
     let stockAlerts = JSON.parse(localStorage.getItem('stockAlerts') || '{}');
     let dismissedAlerts = JSON.parse(localStorage.getItem('dismissedAlerts') || '{}');
     let benchmarkData = { NZX50: {}, ASX200: {}, SP500: {} };
+    let managedFundsData = [];
 
     function calculateVolatility(prices) {
       if (prices.length < 2) return 0;
@@ -592,6 +593,23 @@
             soldHoldingsData = [];
           }
           
+          // Fetch managed funds (optional separate sheet)
+          try {
+            const mfResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/Managed%20Funds?key=' + API_KEY);
+            const mfJson = await mfResponse.json();
+            if (mfJson.values && mfJson.values.length > 1) {
+              const mfHeaders = mfJson.values[0];
+              managedFundsData = mfJson.values.slice(1).map(row => {
+                const obj = {};
+                mfHeaders.forEach((h, i) => { obj[h] = row[i] || ''; });
+                return obj;
+              }).filter(r => r['Fund Name']);
+            }
+          } catch (e) {
+            console.log('Could not load Managed Funds sheet (optional):', e);
+            managedFundsData = [];
+          }
+
           saveCachedData(portfolioData);
           await fetchBenchmarkData();
           render();
@@ -737,20 +755,134 @@
     function renderBigPlanView(html, portfolioWithMetrics, totalValue, totalCost, gain, gainPct, top5Pct, sortedByValue, portfolioVol, totalFIF, fifRem, benchmarkReturns, portfolioReturn7d, portfolioReturn70d) {
       html += '<div class="max-w-4xl mx-auto">';
 
-      // Header
-      html += '<div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg p-6 mb-6 flex items-center justify-between">';
-      html += '<div><h1 class="text-2xl font-bold">Portfolio Intelligence</h1><p class="text-blue-100 mt-1">' + portfolioData.length + ' positions</p></div>';
-      html += '<div class="text-right"><p class="text-3xl font-bold">$' + fmt(totalValue) + '</p><p class="text-blue-200 text-sm">Total Value</p></div>';
+      // ── Parse managed funds data ────────────────────────────────────────────
+      const mfAll = managedFundsData || [];
+      const kiwiRows = mfAll.filter(r => (r['Type'] || '').toLowerCase().includes('kiwi'));
+      const mfRows   = mfAll.filter(r => !(r['Type'] || '').toLowerCase().includes('kiwi'));
+
+      const parseNZD = v => { const n = parseFloat(String(v || '').replace(/[$,\s]/g, '')); return isNaN(n) ? 0 : n; };
+      const parseGainPct = v => { const n = parseFloat(String(v || '').replace(/[%\s]/g, '')); return isNaN(n) ? null : n; };
+
+      const kiwiValue = kiwiRows.reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
+      const kiwiCost  = kiwiRows.reduce((s, r) => s + parseNZD(r['Total Cost (NZD)']), 0);
+      const kiwiGain  = kiwiValue - kiwiCost;
+
+      const mfValue = mfRows.reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
+      const mfCost  = mfRows.reduce((s, r) => s + parseNZD(r['Total Cost (NZD)']), 0);
+      const mfGain  = mfRows.reduce((s, r) => s + parseNZD(r['Gain/Loss $']), 0) || (mfValue - mfCost);
+
+      const totalWealth = totalValue + mfValue + kiwiValue;
+      const GOAL = 1000000;
+      const goalPct = Math.min((totalWealth / GOAL) * 100, 100);
+      const goalBarColor = goalPct >= 75 ? '#16a34a' : goalPct >= 40 ? '#2563eb' : '#7c3aed';
+
+      // ── $1M Retirement Goal header ──────────────────────────────────────────
+      html += '<div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:white;border-radius:16px;padding:1.75rem;margin-bottom:1.5rem;">';
+      html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.25rem;">';
+      html += '<div><h1 style="font-size:1.5rem;font-weight:800;margin:0 0 0.25rem;">The Big Plan</h1>';
+      html += '<p style="color:#93c5fd;margin:0;font-size:0.9rem;">$1,000,000 retirement goal</p></div>';
+      html += '<div style="text-align:right;"><div style="font-size:2rem;font-weight:800;">$' + fmt(totalWealth) + '</div>';
+      html += '<div style="color:#93c5fd;font-size:0.85rem;">total wealth</div></div>';
+      html += '</div>';
+      html += '<div style="background:rgba(255,255,255,0.2);border-radius:99px;height:14px;margin-bottom:0.6rem;">';
+      html += '<div style="height:14px;border-radius:99px;background:' + goalBarColor + ';width:' + goalPct.toFixed(1) + '%;"></div>';
+      html += '</div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.8rem;color:#bfdbfe;">';
+      html += '<span>' + goalPct.toFixed(1) + '% of goal</span><span>$' + fmt(GOAL - totalWealth) + ' to go</span>';
+      html += '</div></div>';
+
+      // ── Three Pillars ───────────────────────────────────────────────────────
+      html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">';
+
+      const pillarCard = (label, icon, value, pgain, cost, borderColor, note) => {
+        const pct = cost > 0 ? (pgain / cost) * 100 : 0;
+        const gColor = pgain >= 0 ? 'var(--green)' : 'var(--red)';
+        const wealthPct = totalWealth > 0 ? (value / totalWealth) * 100 : 0;
+        let h = '<div class="card" style="border-top:4px solid ' + borderColor + ';position:relative;">';
+        h += '<div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.6rem;">';
+        h += '<span style="font-size:1.1rem;">' + icon + '</span>';
+        h += '<span style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">' + label + '</span>';
+        h += '</div>';
+        h += '<div style="font-size:1.4rem;font-weight:800;margin-bottom:0.15rem;">$' + fmt(value) + '</div>';
+        if (cost > 0) {
+          h += '<div style="font-size:0.82rem;color:' + gColor + ';font-weight:600;">' + (pgain >= 0 ? '+' : '') + '$' + fmt(pgain) + ' (' + (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%)</div>';
+        } else if (value > 0) {
+          h += '<div style="font-size:0.82rem;color:var(--text-muted);">Balance tracked</div>';
+        } else {
+          h += '<div style="font-size:0.82rem;color:var(--text-muted);">No data yet</div>';
+        }
+        h += '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.4rem;">' + wealthPct.toFixed(1) + '% of total</div>';
+        if (note) h += '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + note + '">' + note + '</div>';
+        h += '</div>';
+        return h;
+      };
+
+      const kiwiNote = kiwiRows.length > 0 ? kiwiRows.map(r => r['Fund Name'] || r['Provider'] || '').filter(Boolean).join(', ') : 'Add to Managed Funds sheet';
+      const mfNote   = mfRows.length > 0 ? mfRows.length + ' fund' + (mfRows.length !== 1 ? 's' : '') : 'Add to Managed Funds sheet';
+      const stkNote  = portfolioData.length + ' position' + (portfolioData.length !== 1 ? 's' : '');
+
+      html += pillarCard('KiwiSaver', '🥝', kiwiValue, kiwiGain, kiwiCost, '#7c3aed', kiwiNote);
+      html += pillarCard('Managed Funds', '📈', mfValue, mfGain, mfCost, '#2563eb', mfNote);
+      html += pillarCard('Stocks', '📊', totalValue, gain, totalCost, '#16a34a', stkNote);
       html += '</div>';
 
-      // Compute key metrics
-      const stocksAtRisk = portfolioWithMetrics.filter(i => i.drawdown < -20).length;
-      const largestPct = ((sortedByValue[0].value / totalValue) * 100);
-      const winningStocks = portfolioData.filter(s => getStockGain(s) > 0).length;
-      const losingStocks = portfolioData.filter(s => getStockGain(s) < 0).length;
-      const winRate = ((winningStocks / portfolioData.length) * 100);
-      const largestIsETF = isETF(sortedByValue[0].stock);
+      // ── Managed Funds Detail ─────────────────────────────────────────────────
+      if (mfAll.length > 0) {
+        html += '<div class="card" style="margin-bottom:1.5rem;">';
+        html += '<h2 style="font-size:1rem;font-weight:700;margin:0 0 1rem;">Managed Funds &amp; KiwiSaver</h2>';
+        html += '<div style="overflow-x:auto;">';
+        html += '<table style="width:100%;font-size:0.85rem;border-collapse:collapse;"><thead>';
+        html += '<tr style="border-bottom:2px solid var(--border-color);">';
+        html += '<th style="text-align:left;padding:0.5rem 0.75rem 0.5rem 0;color:var(--text-muted);font-weight:600;">Fund</th>';
+        html += '<th style="text-align:left;padding:0.5rem 0.75rem;color:var(--text-muted);font-weight:600;">Type</th>';
+        html += '<th style="text-align:right;padding:0.5rem 0.75rem;color:var(--text-muted);font-weight:600;">Cost</th>';
+        html += '<th style="text-align:right;padding:0.5rem 0.75rem;color:var(--text-muted);font-weight:600;">Value</th>';
+        html += '<th style="text-align:right;padding:0.5rem 0;color:var(--text-muted);font-weight:600;">Gain / Loss</th>';
+        html += '</tr></thead><tbody>';
 
+        mfAll.forEach(r => {
+          const rVal  = parseNZD(r['Current Value (NZD)']);
+          const rCost = parseNZD(r['Total Cost (NZD)']);
+          const rGainRaw = parseNZD(r['Gain/Loss $']);
+          const rGain = rGainRaw !== 0 ? rGainRaw : (rVal - rCost);
+          const rGainPctRaw = parseGainPct(r['Gain/Loss %']);
+          const rGainPct = rGainPctRaw !== null ? rGainPctRaw : (rCost > 0 ? (rGain / rCost) * 100 : null);
+          const rType  = r['Type'] || '';
+          const rName  = r['Fund Name'] || r['Provider'] || '—';
+          const isKiwi = rType.toLowerCase().includes('kiwi');
+          const gColor = rGain >= 0 ? 'var(--green)' : 'var(--red)';
+          html += '<tr style="border-bottom:1px solid var(--border-color);">';
+          html += '<td style="padding:0.6rem 0.75rem 0.6rem 0;">';
+          html += '<div style="font-weight:600;">' + rName + '</div>';
+          if (r['Provider'] && r['Provider'] !== rName) html += '<div style="font-size:0.72rem;color:var(--text-muted);">' + r['Provider'] + '</div>';
+          html += '</td>';
+          html += '<td style="padding:0.6rem 0.75rem;"><span style="font-size:0.75rem;background:' + (isKiwi ? '#f3e8ff' : '#dbeafe') + ';color:' + (isKiwi ? '#7c3aed' : '#1d4ed8') + ';padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">' + (rType || '—') + '</span></td>';
+          html += '<td style="text-align:right;padding:0.6rem 0.75rem;color:var(--text-secondary);">$' + fmt(rCost) + '</td>';
+          html += '<td style="text-align:right;padding:0.6rem 0.75rem;font-weight:600;">$' + fmt(rVal) + '</td>';
+          html += '<td style="text-align:right;padding:0.6rem 0;color:' + gColor + ';font-weight:600;">' + (rGain >= 0 ? '+' : '') + '$' + fmt(rGain);
+          if (rGainPct !== null) html += '<br><span style="font-size:0.75rem;">' + (rGainPct >= 0 ? '+' : '') + rGainPct.toFixed(1) + '%</span>';
+          html += '</td></tr>';
+        });
+
+        const mfAllVal  = mfAll.reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
+        const mfAllCost = mfAll.reduce((s, r) => s + parseNZD(r['Total Cost (NZD)']), 0);
+        const mfAllGain = mfAllVal - mfAllCost;
+        const mfAllPct  = mfAllCost > 0 ? (mfAllGain / mfAllCost) * 100 : 0;
+        const mfTotCol  = mfAllGain >= 0 ? 'var(--green)' : 'var(--red)';
+        html += '<tr style="border-top:2px solid var(--border-color);font-weight:700;">';
+        html += '<td colspan="2" style="padding:0.6rem 0.75rem 0.6rem 0;">Total</td>';
+        html += '<td style="text-align:right;padding:0.6rem 0.75rem;">$' + fmt(mfAllCost) + '</td>';
+        html += '<td style="text-align:right;padding:0.6rem 0.75rem;">$' + fmt(mfAllVal) + '</td>';
+        html += '<td style="text-align:right;padding:0.6rem 0;color:' + mfTotCol + ';">' + (mfAllGain >= 0 ? '+' : '') + '$' + fmt(mfAllGain) + '<br><span style="font-size:0.75rem;">' + (mfAllPct >= 0 ? '+' : '') + mfAllPct.toFixed(1) + '%</span></td>';
+        html += '</tr></tbody></table></div></div>';
+      } else {
+        html += '<div class="card" style="margin-bottom:1.5rem;text-align:center;padding:2rem;">';
+        html += '<p style="color:var(--text-muted);margin:0 0 0.5rem;">No managed funds data yet.</p>';
+        html += '<p style="font-size:0.85rem;color:var(--text-muted);">Add fund rows to the <strong>Managed Funds</strong> sheet in your Google Spreadsheet.</p>';
+        html += '</div>';
+      }
+
+      // ── Stock Portfolio — All-Time ─────────────────────────────────────────
       let realizedGain = 0, realizedCost = 0, soldCount = 0, winningSales = 0, soldDividends = 0;
       if (soldHoldingsData && soldHoldingsData.length > 0) {
         soldHoldingsData.forEach(s => {
@@ -770,82 +902,55 @@
       const realizedGainPct = realizedCost > 0 ? (realizedGain / realizedCost) * 100 : 0;
       const sellWinRate = soldCount > 0 ? (winningSales / soldCount) * 100 : 0;
 
-      // ── Snapshot metric cards ──────────────────────────────────────────────
-      html += '<div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">';
+      html += '<div class="card" style="margin-bottom:1.5rem;">';
+      html += '<h2 style="font-size:1rem;font-weight:700;margin:0 0 1rem;">Stock Portfolio — All-Time</h2>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">';
 
-      // Unrealised gain
-      const gainColor2 = gain >= 0 ? 'text-green-700' : 'text-red-700';
-      const gainBg2 = gain >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
-      html += '<div class="rounded-lg border p-4 ' + gainBg2 + '">';
-      html += '<p class="text-xs text-gray-500 mb-1">Unrealised Gain/Loss</p>';
-      html += '<p class="text-xl font-bold ' + gainColor2 + '">' + (gain >= 0 ? '+' : '') + '$' + fmt(gain) + '</p>';
-      html += '<p class="text-sm ' + gainColor2 + '">' + (gainPct >= 0 ? '+' : '') + gainPct.toFixed(1) + '% on current holdings</p>';
-      html += '</div>';
+      const atCol = allTimeGain >= 0 ? 'var(--green)' : 'var(--red)';
+      html += '<div style="background:' + (allTimeGain >= 0 ? 'var(--green-bg)' : 'var(--red-bg)') + ';border-radius:10px;padding:1rem;">';
+      html += '<div style="font-size:0.72rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.35rem;">All-Time Return</div>';
+      html += '<div style="font-size:1.3rem;font-weight:800;color:' + atCol + ';">' + (allTimeGain >= 0 ? '+' : '') + '$' + fmt(allTimeGain) + '</div>';
+      html += '<div style="font-size:0.82rem;color:' + atCol + ';">' + (allTimeGainPct >= 0 ? '+' : '') + allTimeGainPct.toFixed(1) + '% incl. divs &amp; exits</div></div>';
 
-      // Realised gains
-      const rgColor = realizedGain >= 0 ? 'text-green-700' : 'text-red-700';
-      const rgBg = soldCount > 0 ? (realizedGain >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-gray-50 border-gray-200';
-      html += '<div class="rounded-lg border p-4 ' + rgBg + '">';
-      html += '<p class="text-xs text-gray-500 mb-1">Realised Gains (' + soldCount + ' exits)</p>';
+      const unrCol = gain >= 0 ? 'var(--green)' : 'var(--red)';
+      html += '<div style="background:' + (gain >= 0 ? 'var(--green-bg)' : 'var(--red-bg)') + ';border-radius:10px;padding:1rem;">';
+      html += '<div style="font-size:0.72rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.35rem;">Unrealised</div>';
+      html += '<div style="font-size:1.3rem;font-weight:800;color:' + unrCol + ';">' + (gain >= 0 ? '+' : '') + '$' + fmt(gain) + '</div>';
+      html += '<div style="font-size:0.82rem;color:' + unrCol + ';">' + (gainPct >= 0 ? '+' : '') + gainPct.toFixed(1) + '% on current holdings</div></div>';
+
+      html += '<div style="background:' + (soldCount > 0 ? (realizedGain >= 0 ? 'var(--green-bg)' : 'var(--red-bg)') : 'var(--bg-tertiary)') + ';border-radius:10px;padding:1rem;">';
+      html += '<div style="font-size:0.72rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.35rem;">Realised (' + soldCount + ' exits)</div>';
       if (soldCount > 0) {
-        html += '<p class="text-xl font-bold ' + rgColor + '">' + (realizedGain >= 0 ? '+' : '') + '$' + fmt(realizedGain) + '</p>';
-        html += '<p class="text-sm ' + rgColor + '">' + (realizedCost > 0 ? (realizedGainPct >= 0 ? '+' : '') + realizedGainPct.toFixed(1) + '% · ' : '') + winningSales + '/' + soldCount + ' profitable</p>';
+        const rgCol = realizedGain >= 0 ? 'var(--green)' : 'var(--red)';
+        html += '<div style="font-size:1.3rem;font-weight:800;color:' + rgCol + ';">' + (realizedGain >= 0 ? '+' : '') + '$' + fmt(realizedGain) + '</div>';
+        html += '<div style="font-size:0.82rem;color:' + rgCol + ';">' + (realizedCost > 0 ? (realizedGainPct >= 0 ? '+' : '') + realizedGainPct.toFixed(1) + '% · ' : '') + winningSales + '/' + soldCount + ' profitable</div>';
       } else {
-        html += '<p class="text-xl font-bold text-gray-400">No exits yet</p>';
-        html += '<p class="text-sm text-gray-400">Track in Sold Holdings sheet</p>';
+        html += '<div style="font-size:1.3rem;font-weight:800;color:var(--text-muted);">No exits yet</div>';
+        html += '<div style="font-size:0.82rem;color:var(--text-muted);">Track in Sold Holdings sheet</div>';
       }
       html += '</div>';
 
-      // Dividends
-      html += '<div class="rounded-lg border p-4 ' + (totalDivs > 0 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200') + '">';
-      html += '<p class="text-xs text-gray-500 mb-1">Total Dividends</p>';
-      html += '<p class="text-xl font-bold text-blue-700">$' + fmt(totalDivs) + '</p>';
-      if (totalDivs > 0 && soldDividends > 0) {
-        html += '<p class="text-sm text-blue-600">$' + fmt(currentDividends) + ' current + $' + fmt(soldDividends) + ' sold</p>';
-      } else {
-        html += '<p class="text-sm text-blue-600">From current holdings</p>';
-      }
+      html += '<div style="background:#eff6ff;border-radius:10px;padding:1rem;">';
+      html += '<div style="font-size:0.72rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.35rem;">Dividends</div>';
+      html += '<div style="font-size:1.3rem;font-weight:800;color:#1d4ed8;">$' + fmt(totalDivs) + '</div>';
+      html += '<div style="font-size:0.82rem;color:#3b82f6;">' + (totalDivs > 0 && soldDividends > 0 ? '$' + fmt(currentDividends) + ' current + $' + fmt(soldDividends) + ' sold' : 'From current holdings') + '</div>';
       html += '</div>';
 
-      // All-time return
-      const atColor = allTimeGain >= 0 ? 'text-purple-700' : 'text-red-700';
-      html += '<div class="rounded-lg border p-4 bg-purple-50 border-purple-200">';
-      html += '<p class="text-xs text-gray-500 mb-1">All-Time Return</p>';
-      html += '<p class="text-xl font-bold ' + atColor + '">' + (allTimeGain >= 0 ? '+' : '') + '$' + fmt(allTimeGain) + '</p>';
-      html += '<p class="text-sm ' + atColor + '">' + (allTimeGainPct >= 0 ? '+' : '') + allTimeGainPct.toFixed(1) + '% incl. dividends &amp; exits</p>';
-      html += '</div>';
-
-      // Win rate
-      const wrColor = winRate >= 60 ? 'text-green-700' : winRate >= 50 ? 'text-amber-700' : 'text-red-700';
-      const wrBg = winRate >= 60 ? 'bg-green-50 border-green-200' : winRate >= 50 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
-      html += '<div class="rounded-lg border p-4 ' + wrBg + '">';
-      html += '<p class="text-xs text-gray-500 mb-1">Win Rate (current)</p>';
-      html += '<p class="text-xl font-bold ' + wrColor + '">' + winningStocks + '↑ &nbsp;' + losingStocks + '↓</p>';
-      html += '<p class="text-sm ' + wrColor + '">' + winRate.toFixed(0) + '% up' + (soldCount > 0 ? ' · exits ' + sellWinRate.toFixed(0) + '%' : '') + '</p>';
-      html += '</div>';
-
-      // Capital deployed
-      html += '<div class="rounded-lg border p-4 bg-gray-50 border-gray-200">';
-      html += '<p class="text-xs text-gray-500 mb-1">Capital Deployed</p>';
-      html += '<p class="text-xl font-bold text-gray-700">$' + fmt(totalCost) + '</p>';
-      html += '<p class="text-sm text-gray-500">' + portfolioData.length + ' positions · $' + fmt(totalValue - totalCost) + ' net</p>';
-      html += '</div>';
-
-      html += '</div>'; // end snapshot grid
+      html += '</div></div>'; // end 2-col grid + card
 
       // ── Performance vs Benchmarks ──────────────────────────────────────────
-      html += '<div class="bg-white rounded-lg shadow-lg p-6 mb-6">';
-      html += '<h2 class="text-lg font-bold text-gray-800 mb-4">Performance vs Benchmarks</h2>';
-      html += '<div class="overflow-x-auto">';
-      html += '<table class="w-full text-sm"><thead><tr class="border-b-2 border-gray-200">';
-      html += '<th class="text-left py-2 pr-4 text-gray-500 font-medium">Period</th>';
-      html += '<th class="text-right py-2 px-3 font-semibold text-blue-700">Your Portfolio</th>';
-      html += '<th class="text-right py-2 px-3 text-gray-500 font-medium">NZX50</th>';
-      html += '<th class="text-right py-2 px-3 text-gray-500 font-medium">ASX200</th>';
-      html += '<th class="text-right py-2 px-3 text-gray-500 font-medium">S&P500</th>';
+      html += '<div class="card" style="margin-bottom:1.5rem;">';
+      html += '<h2 style="font-size:1rem;font-weight:700;margin:0 0 1rem;">Performance vs Benchmarks</h2>';
+      html += '<div style="overflow-x:auto;">';
+      html += '<table style="width:100%;font-size:0.875rem;border-collapse:collapse;"><thead>';
+      html += '<tr style="border-bottom:2px solid var(--border-color);">';
+      html += '<th style="text-align:left;padding:0.5rem 1rem 0.5rem 0;color:var(--text-muted);font-weight:600;">Period</th>';
+      html += '<th style="text-align:right;padding:0.5rem 0.75rem;color:#1d4ed8;font-weight:700;">Your Portfolio</th>';
+      html += '<th style="text-align:right;padding:0.5rem 0.75rem;color:var(--text-muted);font-weight:600;">NZX50</th>';
+      html += '<th style="text-align:right;padding:0.5rem 0.75rem;color:var(--text-muted);font-weight:600;">ASX200</th>';
+      html += '<th style="text-align:right;padding:0.5rem 0;color:var(--text-muted);font-weight:600;">S&amp;P500</th>';
       html += '</tr></thead><tbody>';
 
-      // Recalculate 1-day return inline
       let bpv1old = 0, bpv1curr = 0;
       portfolioData.forEach(s => {
         const qty2 = parseFloat(s.Quantity) || 0;
@@ -860,150 +965,80 @@
         { label: '7 Days',  portRet: portfolioReturn7d,   key: '7d' },
         { label: '70 Days', portRet: portfolioReturn70d,  key: '70d' }
       ];
-      // Benchmark cell: red = you're beating it, green = it's beating you
       const fmtBenchCell2 = (v, portRet) => {
-        if (v === null || v === undefined || isNaN(v)) return '<span class="text-gray-300">—</span>';
+        if (v === null || v === undefined || isNaN(v)) return '<span style="color:var(--text-muted);">—</span>';
         const beating = portRet !== null && !isNaN(portRet) && portRet > v;
-        const c = beating ? 'text-red-600' : 'text-green-600';
-        return '<span class="' + c + ' font-medium">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span>';
+        const c = beating ? 'var(--red)' : 'var(--green)';
+        return '<span style="color:' + c + ';font-weight:600;">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span>';
       };
       const fmtPortRet2 = v => {
-        if (v === null || v === undefined || isNaN(v)) return '<span class="text-gray-300">—</span>';
-        const c = v >= 0 ? 'text-green-600' : 'text-red-600';
-        return '<span class="' + c + ' font-bold">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span>';
+        if (v === null || v === undefined || isNaN(v)) return '<span style="color:var(--text-muted);">—</span>';
+        const c = v >= 0 ? 'var(--green)' : 'var(--red)';
+        return '<span style="color:' + c + ';font-weight:700;">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%</span>';
       };
       bpPeriods.forEach(p => {
         const nzx = benchmarkReturns['NZX50']  ? benchmarkReturns['NZX50'][p.key]  : null;
         const asx = benchmarkReturns['ASX200'] ? benchmarkReturns['ASX200'][p.key] : null;
         const sp5 = benchmarkReturns['SP500']  ? benchmarkReturns['SP500'][p.key]  : null;
-        html += '<tr class="border-b border-gray-100">';
-        html += '<td class="py-2 pr-4 text-gray-600 font-medium">' + p.label + '</td>';
-        html += '<td class="py-2 px-3 text-right">' + fmtPortRet2(p.portRet) + '</td>';
-        html += '<td class="py-2 px-3 text-right">' + fmtBenchCell2(nzx, p.portRet) + '</td>';
-        html += '<td class="py-2 px-3 text-right">' + fmtBenchCell2(asx, p.portRet) + '</td>';
-        html += '<td class="py-2 px-3 text-right">' + fmtBenchCell2(sp5, p.portRet) + '</td>';
+        html += '<tr style="border-bottom:1px solid var(--border-color);">';
+        html += '<td style="padding:0.6rem 1rem 0.6rem 0;color:var(--text-secondary);font-weight:600;">' + p.label + '</td>';
+        html += '<td style="text-align:right;padding:0.6rem 0.75rem;">' + fmtPortRet2(p.portRet) + '</td>';
+        html += '<td style="text-align:right;padding:0.6rem 0.75rem;">' + fmtBenchCell2(nzx, p.portRet) + '</td>';
+        html += '<td style="text-align:right;padding:0.6rem 0.75rem;">' + fmtBenchCell2(asx, p.portRet) + '</td>';
+        html += '<td style="text-align:right;padding:0.6rem 0;">' + fmtBenchCell2(sp5, p.portRet) + '</td>';
         html += '</tr>';
       });
-      html += '</tbody></table>';
+      html += '</tbody></table></div></div>';
 
-      const beatingBenchmarks = [];
-      if (Object.keys(benchmarkReturns).length > 0) {
-        if (benchmarkReturns['NZX50']  && portfolioReturn70d > benchmarkReturns['NZX50']['70d'])  beatingBenchmarks.push('NZX50');
-        if (benchmarkReturns['ASX200'] && portfolioReturn70d > benchmarkReturns['ASX200']['70d']) beatingBenchmarks.push('ASX200');
-        if (benchmarkReturns['SP500']  && portfolioReturn70d > benchmarkReturns['SP500']['70d'])  beatingBenchmarks.push('S&P500');
-      }
-      if (beatingBenchmarks.length > 0) {
-        html += '<p class="text-sm text-green-700 mt-3 font-medium">↑ Outperforming ' + beatingBenchmarks.join(', ') + ' over 70 days</p>';
-      } else if (Object.keys(benchmarkReturns).length > 0) {
-        html += '<p class="text-sm text-amber-600 mt-3">Trailing benchmarks on 70-day view</p>';
-      }
-      html += '</div></div>';
+      // ── FIF + Risk (2 columns) ─────────────────────────────────────────────
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">';
 
-      // ── FIF Status ─────────────────────────────────────────────────────────
       const fifPct2 = Math.min((totalFIF / 50000) * 100, 100);
-      const fifBarColor = fifPct2 > 90 ? '#ef4444' : fifPct2 > 70 ? '#f59e0b' : '#22c55e';
-      html += '<div class="bg-white rounded-lg shadow-lg p-6 mb-6">';
-      html += '<div class="flex items-center justify-between mb-3">';
-      html += '<h2 class="text-lg font-bold text-gray-800">FIF Allowance</h2>';
-      html += '<div class="text-right"><span class="text-xl font-bold" style="color:' + fifBarColor + '">$' + fmt(totalFIF) + '</span><span class="text-gray-400 text-sm"> / $50,000</span></div>';
-      html += '</div>';
-      html += '<div class="w-full bg-gray-200 rounded-full h-4 mb-2">';
-      html += '<div class="h-4 rounded-full" style="width:' + fifPct2.toFixed(1) + '%;background:' + fifBarColor + '"></div>';
-      html += '</div>';
-      html += '<div class="flex justify-between text-sm text-gray-500">';
-      html += '<span>' + fifPct2.toFixed(0) + '% used</span><span>$' + fmt(fifRem) + ' remaining</span>';
-      html += '</div>';
-      if (fifRem < 5000) {
-        html += '<p class="text-sm text-red-600 font-semibold mt-2">Near FIF limit — new foreign purchases will trigger FIF tax</p>';
-      } else if (fifRem < 15000) {
-        html += '<p class="text-sm text-amber-600 mt-2">Approaching FIF limit — plan foreign purchases carefully</p>';
-      }
+      const fifBarColor = fifPct2 > 90 ? 'var(--red)' : fifPct2 > 70 ? '#f59e0b' : 'var(--green)';
+      html += '<div class="card">';
+      html += '<h2 style="font-size:0.9rem;font-weight:700;margin:0 0 0.75rem;">FIF Allowance</h2>';
+      html += '<div style="display:flex;align-items:baseline;gap:0.4rem;margin-bottom:0.5rem;">';
+      html += '<span style="font-size:1.2rem;font-weight:800;color:' + fifBarColor + ';">$' + fmt(totalFIF) + '</span>';
+      html += '<span style="color:var(--text-muted);font-size:0.8rem;">/ $50,000</span></div>';
+      html += '<div style="background:var(--bg-tertiary);border-radius:99px;height:8px;margin-bottom:0.4rem;">';
+      html += '<div style="height:8px;border-radius:99px;background:' + fifBarColor + ';width:' + fifPct2.toFixed(1) + '%;"></div></div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--text-muted);">';
+      html += '<span>' + fifPct2.toFixed(0) + '% used</span><span>$' + fmt(fifRem) + ' left</span></div>';
+      if (fifRem < 5000) html += '<p style="font-size:0.78rem;color:var(--red);font-weight:600;margin:0.5rem 0 0;">Near limit — new foreign purchases trigger FIF tax</p>';
+      else if (fifRem < 15000) html += '<p style="font-size:0.78rem;color:#b45309;margin:0.5rem 0 0;">Approaching limit — plan carefully</p>';
       html += '</div>';
 
-      // ── Risk Snapshot ──────────────────────────────────────────────────────
-      html += '<div class="bg-white rounded-lg shadow-lg p-6 mb-6">';
-      html += '<h2 class="text-lg font-bold text-gray-800 mb-4">Risk Snapshot</h2>';
-      html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">';
+      const stocksAtRisk = portfolioWithMetrics.filter(i => i.drawdown < -20).length;
+      const winningStocks = portfolioData.filter(s => getStockGain(s) > 0).length;
+      const losingStocks  = portfolioData.filter(s => getStockGain(s) < 0).length;
+      const winRate = portfolioData.length > 0 ? (winningStocks / portfolioData.length) * 100 : 0;
+      html += '<div class="card">';
+      html += '<h2 style="font-size:0.9rem;font-weight:700;margin:0 0 0.75rem;">Risk Snapshot</h2>';
+      html += '<div style="display:flex;flex-direction:column;gap:0.5rem;">';
 
-      // Volatility
-      const volColor2 = portfolioVol > 30 ? 'text-red-700' : portfolioVol > 20 ? 'text-amber-700' : 'text-green-700';
-      const volBg2    = portfolioVol > 30 ? 'bg-red-50 border-red-200' : portfolioVol > 20 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200';
-      html += '<div class="rounded-lg border p-4 ' + volBg2 + '">';
-      html += '<p class="text-xs text-gray-500 mb-1">Annualised Volatility</p>';
-      html += '<p class="text-xl font-bold ' + volColor2 + '">' + portfolioVol.toFixed(0) + '%</p>';
-      html += '<p class="text-xs ' + volColor2 + '">' + (portfolioVol > 30 ? 'High' : portfolioVol > 20 ? 'Moderate' : 'Low') + '</p>';
-      html += '</div>';
+      const volColor2 = portfolioVol > 30 ? 'var(--red)' : portfolioVol > 20 ? '#b45309' : 'var(--green)';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+      html += '<span style="font-size:0.8rem;color:var(--text-muted);">Volatility</span>';
+      html += '<span style="font-weight:700;color:' + volColor2 + ';">' + portfolioVol.toFixed(0) + '% <span style="font-size:0.75rem;font-weight:400;">(' + (portfolioVol > 30 ? 'High' : portfolioVol > 20 ? 'Moderate' : 'Low') + ')</span></span></div>';
 
-      // Drawdowns
-      const ddColor2 = stocksAtRisk > 5 ? 'text-red-700' : stocksAtRisk > 0 ? 'text-amber-700' : 'text-green-700';
-      const ddBg2    = stocksAtRisk > 5 ? 'bg-red-50 border-red-200' : stocksAtRisk > 0 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200';
-      html += '<div class="rounded-lg border p-4 ' + ddBg2 + '">';
-      html += '<p class="text-xs text-gray-500 mb-1">Down &gt;20% from Peak</p>';
-      html += '<p class="text-xl font-bold ' + ddColor2 + '">' + stocksAtRisk + ' stock' + (stocksAtRisk !== 1 ? 's' : '') + '</p>';
-      html += '<p class="text-xs ' + ddColor2 + '">' + (stocksAtRisk === 0 ? 'None in danger zone' : 'Review these positions') + '</p>';
-      html += '</div>';
+      const wrColor2 = winRate >= 60 ? 'var(--green)' : winRate >= 50 ? '#b45309' : 'var(--red)';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+      html += '<span style="font-size:0.8rem;color:var(--text-muted);">Win rate</span>';
+      html += '<span style="font-weight:700;color:' + wrColor2 + ';">' + winRate.toFixed(0) + '% <span style="font-size:0.75rem;font-weight:400;">(' + winningStocks + '↑ ' + losingStocks + '↓)</span></span></div>';
 
-      // Largest position — ETF-aware
-      const concColor2 = (!largestIsETF && largestPct > 15) ? 'text-red-700' : (!largestIsETF && largestPct > 12) ? 'text-amber-700' : 'text-green-700';
-      const concBg2    = (!largestIsETF && largestPct > 15) ? 'bg-red-50 border-red-200' : (!largestIsETF && largestPct > 12) ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200';
-      const largestName2 = (sortedByValue[0].stock['Firm name'] || sortedByValue[0].stock['Ticker/Symbol'] || '').split(' ').slice(0,3).join(' ');
-      html += '<div class="rounded-lg border p-4 ' + concBg2 + '">';
-      html += '<p class="text-xs text-gray-500 mb-1">Largest Position</p>';
-      html += '<p class="text-xl font-bold ' + concColor2 + '">' + largestPct.toFixed(1) + '%</p>';
-      html += '<p class="text-xs ' + concColor2 + '">' + largestName2 + (largestIsETF ? ' (ETF — OK)' : '') + '</p>';
-      html += '</div>';
+      const ddColor2 = stocksAtRisk > 3 ? 'var(--red)' : stocksAtRisk > 0 ? '#b45309' : 'var(--green)';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+      html += '<span style="font-size:0.8rem;color:var(--text-muted);">Down &gt;20% from peak</span>';
+      html += '<span style="font-weight:700;color:' + ddColor2 + ';">' + stocksAtRisk + ' stock' + (stocksAtRisk !== 1 ? 's' : '') + '</span></div>';
 
-      // Top-5 concentration
-      const t5Color2 = top5Pct > 50 ? 'text-red-700' : top5Pct > 40 ? 'text-amber-700' : 'text-green-700';
-      const t5Bg2    = top5Pct > 50 ? 'bg-red-50 border-red-200' : top5Pct > 40 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200';
-      html += '<div class="rounded-lg border p-4 ' + t5Bg2 + '">';
-      html += '<p class="text-xs text-gray-500 mb-1">Top-5 Concentration</p>';
-      html += '<p class="text-xl font-bold ' + t5Color2 + '">' + top5Pct.toFixed(0) + '%</p>';
-      html += '<p class="text-xs ' + t5Color2 + '">' + (top5Pct > 50 ? 'Over 40% target' : top5Pct > 40 ? 'Near target' : 'Within range') + '</p>';
-      html += '</div>';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+      html += '<span style="font-size:0.8rem;color:var(--text-muted);">Capital deployed</span>';
+      html += '<span style="font-weight:700;color:var(--text-primary);">$' + fmt(totalCost) + '</span></div>';
 
-      html += '</div></div>'; // end risk grid + card
+      html += '</div></div>'; // flex-col + risk card
+      html += '</div>'; // FIF+Risk grid
 
-      // ── Holdings Breakdown ─────────────────────────────────────────────────
-      html += '<div class="bg-white rounded-lg shadow-lg p-6 mb-6">';
-      html += '<h2 class="text-lg font-bold text-gray-800 mb-4">Holdings Breakdown <span class="text-gray-400 font-normal text-sm">ranked by value</span></h2>';
-      html += '<div>';
-
-      sortedByValue.forEach((item, idx) => {
-        const sv = item.stock;
-        const pctBar = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
-        const gv = getStockGain(sv);
-        const costv = getStockCost(sv);
-        const divv = cleanPrice(sv['Dividend']);
-        const totalRetv = gv + divv;
-        const totalRetPctv = costv > 0 ? (totalRetv / costv) * 100 : 0;
-        const retColorv = totalRetv >= 0 ? 'text-green-600' : 'text-red-600';
-        const barColorv = totalRetv >= 0 ? '#22c55e' : '#ef4444';
-        const etfv = isETF(sv);
-        const namev = sv['Firm name'] || sv['Ticker/Symbol'] || 'Unknown';
-        const tickerv = sv['Ticker/Symbol'] || '';
-
-        html += '<div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">';
-        html += '<div class="w-5 text-xs text-gray-400 text-right shrink-0">' + (idx + 1) + '</div>';
-        html += '<div class="flex-1 min-w-0">';
-        html += '<div class="flex items-center gap-2 mb-1">';
-        html += '<span class="font-medium text-sm text-gray-800 truncate">' + namev + '</span>';
-        if (etfv) html += '<span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold shrink-0">ETF</span>';
-        html += '</div>';
-        html += '<div class="w-full bg-gray-100 rounded-full h-1.5">';
-        html += '<div class="h-1.5 rounded-full" style="width:' + Math.min(pctBar, 100).toFixed(1) + '%;background:' + barColorv + '"></div>';
-        html += '</div>';
-        html += '</div>';
-        html += '<div class="text-right shrink-0">';
-        html += '<p class="text-sm font-semibold text-gray-800">$' + fmt(item.value) + ' <span class="text-gray-400 font-normal text-xs">(' + pctBar.toFixed(1) + '%)</span></p>';
-        html += '<p class="text-xs ' + retColorv + '">' + (totalRetv >= 0 ? '+' : '') + '$' + fmt(totalRetv) + ' / ' + (totalRetPctv >= 0 ? '+' : '') + totalRetPctv.toFixed(1) + '%</p>';
-        html += '</div>';
-        html += '</div>';
-      });
-
-      html += '</div></div>';
-
-      html += '</div>'; // end max-w-4xl      html += '</div>';
+      html += '</div>'; // end max-w-4xl
       
       document.getElementById('content').innerHTML = html;
     }
@@ -1418,34 +1453,21 @@
           }
         }
         
-        // Smooth out anomalous drops (multi-day drops >40% that recover are likely API errors)
-        for (let i = 1; i < values.length; i++) {
-          const prevValue = values[i - 1];
-          const currValue = values[i];
-          const dropFromPrev = ((prevValue - currValue) / prevValue) * 100;
-          
-          if (dropFromPrev > 40) {
-            let recoveryIdx = -1;
-            for (let j = i + 1; j < values.length; j++) {
-              const futureValue = values[j];
-              const diffFromPrev = Math.abs((futureValue - prevValue) / prevValue) * 100;
-              if (diffFromPrev < 20) {
-                recoveryIdx = j;
-                break;
-              }
-            }
-            
-            if (recoveryIdx > 0) {
-              const recoveryValue = values[recoveryIdx];
-              const span = recoveryIdx - i + 1;
-              for (let k = i; k < recoveryIdx; k++) {
-                const progress = (k - i + 1) / (span + 1);
-                values[k] = prevValue + (recoveryValue - prevValue) * progress;
-              }
-              i = recoveryIdx;
-            } else {
-              values[i] = prevValue;
-            }
+        // Remove spike values: a point that swings far and then immediately reverses is bad data.
+        // Replace it with a linear interpolation between its neighbours.
+        for (let i = 1; i < values.length - 1; i++) {
+          const prev = values[i - 1];
+          const curr = values[i];
+          const next = values[i + 1];
+          const dropIn  = curr - prev;   // negative = fell sharply
+          const recovery = next - curr;   // positive = bounced back
+          // Spike pattern: dropped >$300 AND next day recovered >50% of that drop
+          if (dropIn < -300 && recovery > Math.abs(dropIn) * 0.5) {
+            values[i] = (prev + next) / 2;
+          }
+          // Inverse spike: jumped >$300 then fell back
+          if (dropIn > 300 && recovery < -Math.abs(dropIn) * 0.5) {
+            values[i] = (prev + next) / 2;
           }
         }
         
