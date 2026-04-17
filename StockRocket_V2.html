@@ -7,6 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%232563eb;stop-opacity:1'/%3E%3Cstop offset='100%25' style='stop-color:%2310b981;stop-opacity:1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' d='M50 10 L65 35 L90 40 L70 60 L75 85 L50 72 L25 85 L30 60 L10 40 L35 35 Z'/%3E%3Cpath fill='white' d='M50 30 L50 55 M38 50 L62 50' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
   <style>
     :root {
       --bg-primary: #f5f5f5;
@@ -206,6 +207,7 @@
     let dismissedAlerts = JSON.parse(localStorage.getItem('dismissedAlerts') || '{}');
     let benchmarkData = { NZX50: {}, ASX200: {}, SP500: {} };
     let managedFundsData = [];
+    let wealthLogData = [];
 
     function calculateVolatility(prices) {
       if (prices.length < 2) return 0;
@@ -610,6 +612,22 @@
             managedFundsData = [];
           }
 
+          try {
+            const wlResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/Wealth%20Log?key=' + API_KEY);
+            const wlJson = await wlResponse.json();
+            if (wlJson.values && wlJson.values.length > 1) {
+              const wlHeaders = wlJson.values[0];
+              wealthLogData = wlJson.values.slice(1).map(row => {
+                const obj = {};
+                wlHeaders.forEach((h, i) => { obj[h] = row[i] || ''; });
+                return obj;
+              }).filter(r => r['Date'] && r['Grand Total']);
+            }
+          } catch (e) {
+            console.log('Could not load Wealth Log sheet (optional):', e);
+            wealthLogData = [];
+          }
+
           saveCachedData(portfolioData);
           await fetchBenchmarkData();
           render();
@@ -757,27 +775,40 @@
 
       // ── Parse managed funds data ────────────────────────────────────────────
       const mfAll = managedFundsData || [];
-      const kiwiRows = mfAll.filter(r => (r['Type'] || '').toLowerCase().includes('kiwi'));
-      const cashRows = mfAll.filter(r => (r['Type'] || '').toLowerCase().includes('cash'));
-      const mfRows   = mfAll.filter(r => {
+      const kiwiRows  = mfAll.filter(r => (r['Type'] || '').toLowerCase().includes('kiwi'));
+      const cashRows  = mfAll.filter(r => (r['Type'] || '').toLowerCase().includes('cash'));
+      const fundRows  = mfAll.filter(r => {
         const t = (r['Type'] || '').toLowerCase();
         return !t.includes('kiwi') && !t.includes('cash');
       });
 
+      // Split funds by provider so Milford and InvestNow are tracked separately
+      const isMilford    = r => (r['Provider'] || r['Fund Name'] || '').toLowerCase().includes('milford');
+      const isInvestNow  = r => (r['Provider'] || r['Fund Name'] || '').toLowerCase().includes('investnow');
+      const milfordRows  = fundRows.filter(isMilford);
+      const investNowRows = fundRows.filter(r => !isMilford(r)); // everything non-Milford goes to InvestNow bucket
+
       const parseNZD = v => { const n = parseFloat(String(v || '').replace(/[$,\s]/g, '')); return isNaN(n) ? 0 : n; };
       const parseGainPct = v => { const n = parseFloat(String(v || '').replace(/[%\s]/g, '')); return isNaN(n) ? null : n; };
+      const sumVal  = rows => rows.reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
+      const sumCost = rows => rows.reduce((s, r) => s + parseNZD(r['Total Cost (NZD)']), 0);
+      const sumGain = rows => { const g = rows.reduce((s, r) => s + parseNZD(r['Gain/Loss $']), 0); return g || (sumVal(rows) - sumCost(rows)); };
 
-      const kiwiValue = kiwiRows.reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
-      const kiwiCost  = kiwiRows.reduce((s, r) => s + parseNZD(r['Total Cost (NZD)']), 0);
+      const kiwiValue = sumVal(kiwiRows);
+      const kiwiCost  = sumCost(kiwiRows);
       const kiwiGain  = kiwiValue - kiwiCost;
 
-      const mfValue = mfRows.reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
-      const mfCost  = mfRows.reduce((s, r) => s + parseNZD(r['Total Cost (NZD)']), 0);
-      const mfGain  = mfRows.reduce((s, r) => s + parseNZD(r['Gain/Loss $']), 0) || (mfValue - mfCost);
+      const milfordValue = sumVal(milfordRows);
+      const milfordCost  = sumCost(milfordRows);
+      const milfordGain  = sumGain(milfordRows);
 
-      const cashValue = cashRows.reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
+      const investNowValue = sumVal(investNowRows);
+      const investNowCost  = sumCost(investNowRows);
+      const investNowGain  = sumGain(investNowRows);
 
-      const totalWealth = totalValue + mfValue + kiwiValue + cashValue;
+      const cashValue = sumVal(cashRows);
+
+      const totalWealth = totalValue + investNowValue + milfordValue + kiwiValue + cashValue;
       const GOAL = 1000000;
       const goalPct = Math.min((totalWealth / GOAL) * 100, 100);
       const goalBarColor = goalPct >= 75 ? '#16a34a' : goalPct >= 40 ? '#2563eb' : '#7c3aed';
@@ -797,62 +828,78 @@
       html += '<span>' + goalPct.toFixed(1) + '% of goal</span><span>$' + fmt(GOAL - totalWealth) + ' to go</span>';
       html += '</div></div>';
 
-      // ── Four Pillars (2×2) ──────────────────────────────────────────────────
-      html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin-bottom:1.5rem;">';
+      // ── Wealth Journey chart ─────────────────────────────────────────────────
+      {
+        const snapCount = (wealthLogData || []).length;
+        html += '<div class="card" style="margin-bottom:1.5rem;">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">';
+        html += '<h2 style="font-size:1rem;font-weight:700;margin:0;">Wealth Journey</h2>';
+        if (snapCount > 0) {
+          html += '<span style="font-size:0.8rem;color:var(--text-muted);">' + snapCount + ' snapshots + live today</span>';
+        } else {
+          html += '<span style="font-size:0.8rem;color:var(--text-muted);">Live today · add Wealth Log sheet for history</span>';
+        }
+        html += '</div>';
+        html += '<div style="position:relative;height:220px;"><canvas id="wealthJourneyChart"></canvas></div>';
+        html += '</div>';
+      }
 
-      const pillarCard = (label, icon, value, pgain, cost, borderColor, note) => {
+      // ── Wealth Pillars (auto-fit, wraps to 2 or 3 per row on mobile/desktop) ──
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.75rem;margin-bottom:1.5rem;">';
+
+      const pillarCard = (label, icon, value, pgain, cost, borderColor, note, isLive) => {
         const pct = cost > 0 ? (pgain / cost) * 100 : 0;
         const gColor = pgain >= 0 ? 'var(--green)' : 'var(--red)';
         const wealthPct = totalWealth > 0 ? (value / totalWealth) * 100 : 0;
-        let h = '<div class="card" style="border-top:4px solid ' + borderColor + ';position:relative;">';
-        h += '<div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.6rem;">';
-        h += '<span style="font-size:1.1rem;">' + icon + '</span>';
-        h += '<span style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">' + label + '</span>';
+        let h = '<div class="card" style="border-top:4px solid ' + borderColor + ';position:relative;padding:0.9rem;">';
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">';
+        h += '<div style="display:flex;align-items:center;gap:0.35rem;">';
+        h += '<span style="font-size:1rem;">' + icon + '</span>';
+        h += '<span style="font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">' + label + '</span>';
         h += '</div>';
-        h += '<div style="font-size:1.4rem;font-weight:800;margin-bottom:0.15rem;">$' + fmt(value) + '</div>';
+        if (isLive) h += '<span style="font-size:0.6rem;background:#dcfce7;color:#16a34a;padding:0.1rem 0.35rem;border-radius:3px;font-weight:700;">LIVE</span>';
+        h += '</div>';
+        h += '<div style="font-size:1.25rem;font-weight:800;margin-bottom:0.1rem;">$' + fmt(value) + '</div>';
         if (cost > 0) {
-          h += '<div style="font-size:0.82rem;color:' + gColor + ';font-weight:600;">' + (pgain >= 0 ? '+' : '') + '$' + fmt(pgain) + ' (' + (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%)</div>';
+          h += '<div style="font-size:0.78rem;color:' + gColor + ';font-weight:600;">' + (pgain >= 0 ? '+' : '') + '$' + fmt(pgain) + ' (' + (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%)</div>';
         } else if (value > 0) {
-          h += '<div style="font-size:0.82rem;color:var(--text-muted);">Balance tracked</div>';
+          h += '<div style="font-size:0.78rem;color:var(--text-muted);">Balance tracked</div>';
         } else {
-          h += '<div style="font-size:0.82rem;color:var(--text-muted);">No data yet</div>';
+          h += '<div style="font-size:0.78rem;color:var(--text-muted);">No data yet</div>';
         }
-        h += '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.4rem;">' + wealthPct.toFixed(1) + '% of total</div>';
-        if (note) h += '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + note + '">' + note + '</div>';
+        h += '<div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.35rem;">' + wealthPct.toFixed(1) + '% of total</div>';
+        if (note) h += '<div style="font-size:0.65rem;color:var(--text-muted);margin-top:0.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + note + '">' + note + '</div>';
         h += '</div>';
         return h;
       };
 
-      const kiwiNote = kiwiRows.length > 0 ? kiwiRows.map(r => r['Fund Name'] || r['Provider'] || '').filter(Boolean).join(', ') : 'Add to Managed Funds sheet';
-      const mfNote   = mfRows.length > 0 ? mfRows.length + ' fund' + (mfRows.length !== 1 ? 's' : '') : 'Add to Managed Funds sheet';
-      const stkNote  = portfolioData.length + ' position' + (portfolioData.length !== 1 ? 's' : '');
-      const cashNote = cashRows.length > 0 ? cashRows.map(r => r['Fund Name'] || r['Provider'] || '').filter(Boolean).join(', ') : 'Add rows with Type = Cash';
+      const kiwiNote      = kiwiRows.length > 0 ? kiwiRows.map(r => r['Fund Name'] || r['Provider'] || '').filter(Boolean).join(', ') : 'Add rows with Type = KiwiSaver';
+      const investNowNote = investNowRows.length > 0 ? investNowRows.map(r => r['Fund Name'] || '').filter(Boolean).join(', ') : 'Add rows via InvestNow';
+      const milfordNote   = milfordRows.length > 0 ? milfordRows.map(r => r['Fund Name'] || '').filter(Boolean).join(', ') : 'Add rows — Provider = Milford';
+      const stkNote       = portfolioData.length + ' position' + (portfolioData.length !== 1 ? 's' : '') + ' · updated live';
+      const cashNote      = cashRows.length > 0 ? cashRows.map(r => r['Fund Name'] || r['Provider'] || '').filter(Boolean).join(', ') : 'Add rows with Type = Cash';
 
-      // Cash pillar uses a simpler card variant — no gain/loss (it's just sitting cash)
-      const cashPillarCard = () => {
-        const wealthPct = totalWealth > 0 ? (cashValue / totalWealth) * 100 : 0;
-        let h = '<div class="card" style="border-top:4px solid #0891b2;position:relative;">';
-        h += '<div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.6rem;">';
-        h += '<span style="font-size:1.1rem;">💵</span>';
-        h += '<span style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Cash</span>';
-        h += '</div>';
-        h += '<div style="font-size:1.4rem;font-weight:800;margin-bottom:0.15rem;">$' + fmt(cashValue) + '</div>';
-        if (cashValue > 0) {
-          h += '<div style="font-size:0.82rem;color:var(--text-muted);">Uninvested — ready to deploy</div>';
-        } else {
-          h += '<div style="font-size:0.82rem;color:var(--text-muted);">Add rows with Type = Cash</div>';
-        }
-        h += '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.4rem;">' + wealthPct.toFixed(1) + '% of total</div>';
-        if (cashNote) h += '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + cashNote + '">' + cashNote + '</div>';
-        h += '</div>';
-        return h;
-      };
+      html += pillarCard('KiwiSaver',  '🥝', kiwiValue,      kiwiGain,      kiwiCost,      '#7c3aed', kiwiNote,      false);
+      html += pillarCard('InvestNow',  '📈', investNowValue, investNowGain, investNowCost, '#2563eb', investNowNote, false);
+      html += pillarCard('Milford',    '🏔️', milfordValue,   milfordGain,   milfordCost,   '#ea580c', milfordNote,   false);
+      html += pillarCard('Shares',     '📊', totalValue,     gain,          totalCost,     '#16a34a', stkNote,       true);
 
-      html += pillarCard('KiwiSaver', '🥝', kiwiValue, kiwiGain, kiwiCost, '#7c3aed', kiwiNote);
-      html += pillarCard('Managed Funds', '📈', mfValue, mfGain, mfCost, '#2563eb', mfNote);
-      html += pillarCard('Stocks', '📊', totalValue, gain, totalCost, '#16a34a', stkNote);
-      html += cashPillarCard();
-      html += '</div>';
+      // Cash pillar — no gain/loss
+      if (cashValue > 0 || cashRows.length > 0) {
+        const cashWealthPct = totalWealth > 0 ? (cashValue / totalWealth) * 100 : 0;
+        html += '<div class="card" style="border-top:4px solid #0891b2;padding:0.9rem;">';
+        html += '<div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.5rem;">';
+        html += '<span style="font-size:1rem;">💵</span>';
+        html += '<span style="font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">Cash</span>';
+        html += '</div>';
+        html += '<div style="font-size:1.25rem;font-weight:800;margin-bottom:0.1rem;">$' + fmt(cashValue) + '</div>';
+        html += '<div style="font-size:0.78rem;color:var(--text-muted);">Ready to deploy</div>';
+        html += '<div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.35rem;">' + cashWealthPct.toFixed(1) + '% of total</div>';
+        if (cashNote) html += '<div style="font-size:0.65rem;color:var(--text-muted);margin-top:0.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + cashNote + '">' + cashNote + '</div>';
+        html += '</div>';
+      }
+
+      html += '</div>'; // end pillars grid
 
       // ── Managed Funds Detail ─────────────────────────────────────────────────
       if (mfAll.length > 0) {
@@ -1075,8 +1122,147 @@
       html += '</div>'; // FIF+Risk grid
 
       html += '</div>'; // end max-w-4xl
-      
+
       document.getElementById('content').innerHTML = html;
+
+      // ── Draw wealth journey chart after DOM is ready ──────────────────────
+      // History = Wealth Log rows before current month; today = live computed values
+      {
+        const parseWLDate = s => {
+          if (!s) return null;
+          const clean = String(s).trim();
+          const parts = clean.split(/[\/\-]/);
+          if (parts.length === 3) {
+            const a = parseInt(parts[0]), b = parseInt(parts[1]), c = parseInt(parts[2]);
+            if (c > 1000) return new Date(c, b - 1, a);   // dd/mm/yyyy
+            if (a > 1000) return new Date(a, b - 1, c);   // yyyy-mm-dd
+          }
+          const d = new Date(clean);
+          return isNaN(d.getTime()) ? null : d;
+        };
+        const parseAmt = v => { if (!v) return null; const n = parseFloat(String(v).replace(/[$,\s]/g, '')); return isNaN(n) ? null : n; };
+
+        // Grand Total for a Wealth Log row = explicit Grand Total OR sum of components
+        const wlTotal = r => {
+          const gt = parseAmt(r['Grand Total']);
+          if (gt) return gt;
+          const cols = ['Shares','InvestNow','Milford','KiwiSaver','Super','Cash'];
+          const sum = cols.reduce((s, c) => s + (parseAmt(r[c]) || 0), 0);
+          return sum > 0 ? sum : null;
+        };
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // Historical points: only entries BEFORE the current calendar month
+        const histPoints = (wealthLogData || [])
+          .map(r => ({ date: parseWLDate(r['Date']), total: wlTotal(r),
+            shares: parseAmt(r['Shares']), investNow: parseAmt(r['InvestNow']),
+            milford: parseAmt(r['Milford']), kiwi: parseAmt(r['KiwiSaver']),
+            super_: parseAmt(r['Super']), cash: parseAmt(r['Cash']) }))
+          .filter(p => p.date && p.total && p.date < startOfMonth)
+          .sort((a, b) => a.date - b.date);
+
+        // Today's live point — shares from live data, managed funds from sheet
+        const todayShares    = totalValue;
+        const todayInvestNow = investNowValue;
+        const todayMilford   = milfordValue;
+        const todayKiwi      = kiwiValue;
+        const todayCash      = cashValue;
+        // Super: use most recent Wealth Log entry's Super value (can't get live)
+        const lastSuper = [...histPoints].reverse().find(p => p.super_ !== null)?.super_ || 0;
+        const todayTotal = todayShares + todayInvestNow + todayMilford + todayKiwi + todayCash + lastSuper;
+
+        const todayPoint = {
+          date: now, total: todayTotal, isToday: true,
+          shares: todayShares, investNow: todayInvestNow,
+          milford: todayMilford, kiwi: todayKiwi, super_: lastSuper, cash: todayCash
+        };
+
+        const allPoints = [...histPoints, todayPoint];
+
+        if (allPoints.length > 0 && document.getElementById('wealthJourneyChart')) {
+          setTimeout(() => {
+            const canvas = document.getElementById('wealthJourneyChart');
+            if (!canvas) return;
+
+            const labels = allPoints.map(p => p.isToday ? 'Today' :
+              p.date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: '2-digit' }));
+            const totals = allPoints.map(p => p.total);
+
+            const allVals = totals.filter(Boolean);
+            const yMin = Math.min(...allVals) * 0.97;
+            const yMax = Math.max(Math.max(...allVals) * 1.005, GOAL * 1.005);
+
+            // Point styles: today gets a larger highlighted dot
+            const pointRadii  = allPoints.map(p => p.isToday ? 7 : 4);
+            const pointColors = allPoints.map(p => p.isToday ? '#16a34a' : '#2563eb');
+
+            new Chart(canvas, {
+              type: 'line',
+              data: {
+                labels,
+                datasets: [{
+                  label: 'Total Wealth',
+                  data: totals,
+                  borderColor: '#2563eb',
+                  backgroundColor: 'rgba(37,99,235,0.07)',
+                  fill: true,
+                  tension: 0.35,
+                  pointRadius: pointRadii,
+                  pointBackgroundColor: pointColors,
+                  pointHoverRadius: 8,
+                  borderWidth: 2.5
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: ctx => {
+                        const p = allPoints[ctx.dataIndex];
+                        const lines = [' Total  $' + Math.round(ctx.raw).toLocaleString('en-NZ')];
+                        if (p.shares   != null) lines.push(' Shares  $' + Math.round(p.shares).toLocaleString('en-NZ') + (p.isToday ? ' ↑live' : ''));
+                        if (p.investNow != null) lines.push(' InvestNow  $' + Math.round(p.investNow).toLocaleString('en-NZ'));
+                        if (p.milford  != null) lines.push(' Milford  $' + Math.round(p.milford).toLocaleString('en-NZ'));
+                        if (p.kiwi     != null) lines.push(' KiwiSaver  $' + Math.round(p.kiwi).toLocaleString('en-NZ'));
+                        if (p.super_   != null && p.super_ > 0) lines.push(' Super  $' + Math.round(p.super_).toLocaleString('en-NZ'));
+                        if (p.cash     != null && p.cash   > 0) lines.push(' Cash  $' + Math.round(p.cash).toLocaleString('en-NZ'));
+                        return lines;
+                      }
+                    }
+                  },
+                  annotation: {
+                    annotations: {
+                      goal: {
+                        type: 'line', yMin: GOAL, yMax: GOAL,
+                        borderColor: '#7c3aed', borderWidth: 1.5, borderDash: [6, 4],
+                        label: {
+                          display: true, content: '$1M Goal', position: 'end',
+                          backgroundColor: 'rgba(124,58,237,0.12)', color: '#7c3aed',
+                          font: { size: 11, weight: '600' }, padding: { x: 6, y: 3 }
+                        }
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+                  y: {
+                    min: yMin, max: yMax,
+                    grid: { color: 'rgba(0,0,0,0.04)' },
+                    ticks: { font: { size: 10 }, callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(2)+'M' : Math.round(v/1000)+'k') }
+                  }
+                }
+              }
+            });
+          }, 100);
+        }
+      }
     }
 
     function renderTableView(tabsHtml, totalValue, totalCost, gain, gainPct, dayChg, weekChg, fifRem) {
