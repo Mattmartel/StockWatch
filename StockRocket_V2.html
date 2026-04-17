@@ -758,7 +758,11 @@
       // ── Parse managed funds data ────────────────────────────────────────────
       const mfAll = managedFundsData || [];
       const kiwiRows = mfAll.filter(r => (r['Type'] || '').toLowerCase().includes('kiwi'));
-      const mfRows   = mfAll.filter(r => !(r['Type'] || '').toLowerCase().includes('kiwi'));
+      const cashRows = mfAll.filter(r => (r['Type'] || '').toLowerCase().includes('cash'));
+      const mfRows   = mfAll.filter(r => {
+        const t = (r['Type'] || '').toLowerCase();
+        return !t.includes('kiwi') && !t.includes('cash');
+      });
 
       const parseNZD = v => { const n = parseFloat(String(v || '').replace(/[$,\s]/g, '')); return isNaN(n) ? 0 : n; };
       const parseGainPct = v => { const n = parseFloat(String(v || '').replace(/[%\s]/g, '')); return isNaN(n) ? null : n; };
@@ -771,7 +775,9 @@
       const mfCost  = mfRows.reduce((s, r) => s + parseNZD(r['Total Cost (NZD)']), 0);
       const mfGain  = mfRows.reduce((s, r) => s + parseNZD(r['Gain/Loss $']), 0) || (mfValue - mfCost);
 
-      const totalWealth = totalValue + mfValue + kiwiValue;
+      const cashValue = cashRows.reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
+
+      const totalWealth = totalValue + mfValue + kiwiValue + cashValue;
       const GOAL = 1000000;
       const goalPct = Math.min((totalWealth / GOAL) * 100, 100);
       const goalBarColor = goalPct >= 75 ? '#16a34a' : goalPct >= 40 ? '#2563eb' : '#7c3aed';
@@ -779,7 +785,7 @@
       // ── $1M Retirement Goal header ──────────────────────────────────────────
       html += '<div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:white;border-radius:16px;padding:1.75rem;margin-bottom:1.5rem;">';
       html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.25rem;">';
-      html += '<div><h1 style="font-size:1.5rem;font-weight:800;margin:0 0 0.25rem;">The Big Plan</h1>';
+      html += '<div><h1 style="font-size:1.5rem;font-weight:800;margin:0 0 0.25rem;color:white;">The Big Plan</h1>';
       html += '<p style="color:#93c5fd;margin:0;font-size:0.9rem;">$1,000,000 retirement goal</p></div>';
       html += '<div style="text-align:right;"><div style="font-size:2rem;font-weight:800;">$' + fmt(totalWealth) + '</div>';
       html += '<div style="color:#93c5fd;font-size:0.85rem;">total wealth</div></div>';
@@ -791,8 +797,8 @@
       html += '<span>' + goalPct.toFixed(1) + '% of goal</span><span>$' + fmt(GOAL - totalWealth) + ' to go</span>';
       html += '</div></div>';
 
-      // ── Three Pillars ───────────────────────────────────────────────────────
-      html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">';
+      // ── Four Pillars (2×2) ──────────────────────────────────────────────────
+      html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin-bottom:1.5rem;">';
 
       const pillarCard = (label, icon, value, pgain, cost, borderColor, note) => {
         const pct = cost > 0 ? (pgain / cost) * 100 : 0;
@@ -820,10 +826,32 @@
       const kiwiNote = kiwiRows.length > 0 ? kiwiRows.map(r => r['Fund Name'] || r['Provider'] || '').filter(Boolean).join(', ') : 'Add to Managed Funds sheet';
       const mfNote   = mfRows.length > 0 ? mfRows.length + ' fund' + (mfRows.length !== 1 ? 's' : '') : 'Add to Managed Funds sheet';
       const stkNote  = portfolioData.length + ' position' + (portfolioData.length !== 1 ? 's' : '');
+      const cashNote = cashRows.length > 0 ? cashRows.map(r => r['Fund Name'] || r['Provider'] || '').filter(Boolean).join(', ') : 'Add rows with Type = Cash';
+
+      // Cash pillar uses a simpler card variant — no gain/loss (it's just sitting cash)
+      const cashPillarCard = () => {
+        const wealthPct = totalWealth > 0 ? (cashValue / totalWealth) * 100 : 0;
+        let h = '<div class="card" style="border-top:4px solid #0891b2;position:relative;">';
+        h += '<div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.6rem;">';
+        h += '<span style="font-size:1.1rem;">💵</span>';
+        h += '<span style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Cash</span>';
+        h += '</div>';
+        h += '<div style="font-size:1.4rem;font-weight:800;margin-bottom:0.15rem;">$' + fmt(cashValue) + '</div>';
+        if (cashValue > 0) {
+          h += '<div style="font-size:0.82rem;color:var(--text-muted);">Uninvested — ready to deploy</div>';
+        } else {
+          h += '<div style="font-size:0.82rem;color:var(--text-muted);">Add rows with Type = Cash</div>';
+        }
+        h += '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.4rem;">' + wealthPct.toFixed(1) + '% of total</div>';
+        if (cashNote) h += '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + cashNote + '">' + cashNote + '</div>';
+        h += '</div>';
+        return h;
+      };
 
       html += pillarCard('KiwiSaver', '🥝', kiwiValue, kiwiGain, kiwiCost, '#7c3aed', kiwiNote);
       html += pillarCard('Managed Funds', '📈', mfValue, mfGain, mfCost, '#2563eb', mfNote);
       html += pillarCard('Stocks', '📊', totalValue, gain, totalCost, '#16a34a', stkNote);
+      html += cashPillarCard();
       html += '</div>';
 
       // ── Managed Funds Detail ─────────────────────────────────────────────────
@@ -850,18 +878,26 @@
           const rType  = r['Type'] || '';
           const rName  = r['Fund Name'] || r['Provider'] || '—';
           const isKiwi = rType.toLowerCase().includes('kiwi');
+          const isCash = rType.toLowerCase().includes('cash');
+          const typeBg  = isKiwi ? '#f3e8ff' : isCash ? '#cffafe' : '#dbeafe';
+          const typeCol = isKiwi ? '#7c3aed' : isCash ? '#0e7490' : '#1d4ed8';
           const gColor = rGain >= 0 ? 'var(--green)' : 'var(--red)';
           html += '<tr style="border-bottom:1px solid var(--border-color);">';
           html += '<td style="padding:0.6rem 0.75rem 0.6rem 0;">';
           html += '<div style="font-weight:600;">' + rName + '</div>';
           if (r['Provider'] && r['Provider'] !== rName) html += '<div style="font-size:0.72rem;color:var(--text-muted);">' + r['Provider'] + '</div>';
           html += '</td>';
-          html += '<td style="padding:0.6rem 0.75rem;"><span style="font-size:0.75rem;background:' + (isKiwi ? '#f3e8ff' : '#dbeafe') + ';color:' + (isKiwi ? '#7c3aed' : '#1d4ed8') + ';padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">' + (rType || '—') + '</span></td>';
+          html += '<td style="padding:0.6rem 0.75rem;"><span style="font-size:0.75rem;background:' + typeBg + ';color:' + typeCol + ';padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">' + (rType || '—') + '</span></td>';
           html += '<td style="text-align:right;padding:0.6rem 0.75rem;color:var(--text-secondary);">$' + fmt(rCost) + '</td>';
           html += '<td style="text-align:right;padding:0.6rem 0.75rem;font-weight:600;">$' + fmt(rVal) + '</td>';
-          html += '<td style="text-align:right;padding:0.6rem 0;color:' + gColor + ';font-weight:600;">' + (rGain >= 0 ? '+' : '') + '$' + fmt(rGain);
-          if (rGainPct !== null) html += '<br><span style="font-size:0.75rem;">' + (rGainPct >= 0 ? '+' : '') + rGainPct.toFixed(1) + '%</span>';
-          html += '</td></tr>';
+          if (isCash) {
+            html += '<td style="text-align:right;padding:0.6rem 0;color:var(--text-muted);">—</td>';
+          } else {
+            html += '<td style="text-align:right;padding:0.6rem 0;color:' + gColor + ';font-weight:600;">' + (rGain >= 0 ? '+' : '') + '$' + fmt(rGain);
+            if (rGainPct !== null) html += '<br><span style="font-size:0.75rem;">' + (rGainPct >= 0 ? '+' : '') + rGainPct.toFixed(1) + '%</span>';
+            html += '</td>';
+          }
+          html += '</tr>';
         });
 
         const mfAllVal  = mfAll.reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
