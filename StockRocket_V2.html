@@ -773,7 +773,89 @@
     function renderBigPlanView(html, portfolioWithMetrics, totalValue, totalCost, gain, gainPct, top5Pct, sortedByValue, portfolioVol, totalFIF, fifRem, benchmarkReturns, portfolioReturn7d, portfolioReturn70d) {
       html += '<div class="max-w-4xl mx-auto">';
 
-      // ── Parse managed funds data ────────────────────────────────────────────
+      // ── Shared helpers ──────────────────────────────────────────────────────
+      const parseNZD = v => { const n = parseFloat(String(v || '').replace(/[$,\s]/g, '')); return isNaN(n) ? 0 : n; };
+      const parseGainPct = v => { const n = parseFloat(String(v || '').replace(/[%\s]/g, '')); return isNaN(n) ? null : n; };
+
+      // Robust date parser — handles dd/mm/yyyy, yyyy-mm-dd, "30-Sep", "30-Sep-25", "Sep-25"
+      const parseWLDate = s => {
+        if (!s) return null;
+        const clean = String(s).trim();
+        // Numeric formats: dd/mm/yyyy or yyyy-mm-dd
+        const numParts = clean.split(/[\/\-]/);
+        if (numParts.length === 3) {
+          const a = parseInt(numParts[0]), b = parseInt(numParts[1]), c = parseInt(numParts[2]);
+          if (!isNaN(a) && !isNaN(b) && !isNaN(c)) {
+            if (c > 1000) return new Date(c, b - 1, a);
+            if (a > 1000) return new Date(a, b - 1, c);
+          }
+        }
+        // "DD-Mon[-YY[YY]]" e.g. "30-Sep", "31-Oct-25", "28-Feb-2026"
+        const MON = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11 };
+        const dmMatch = clean.match(/^(\d{1,2})[\-\s\/]([A-Za-z]{3})(?:[\-\s\/](\d{2,4}))?$/);
+        if (dmMatch) {
+          const day = parseInt(dmMatch[1]), mon = MON[dmMatch[2].toLowerCase().slice(0,3)];
+          if (mon !== undefined) {
+            let yr = dmMatch[3] ? parseInt(dmMatch[3]) : null;
+            if (yr !== null && yr < 100) yr += 2000;
+            if (yr === null) {
+              // No year — use most recent past occurrence
+              const now = new Date();
+              yr = now.getFullYear();
+              if (new Date(yr, mon, day) > now) yr--;
+            }
+            return new Date(yr, mon, day);
+          }
+        }
+        // "Mon-YY[YY]" e.g. "Sep-25"
+        const myMatch = clean.match(/^([A-Za-z]{3})[\-\s\/](\d{2,4})$/);
+        if (myMatch) {
+          const mon = MON[myMatch[1].toLowerCase().slice(0,3)];
+          if (mon !== undefined) {
+            let yr = parseInt(myMatch[2]);
+            if (yr < 100) yr += 2000;
+            return new Date(yr, mon, 1);
+          }
+        }
+        const d = new Date(clean);
+        return isNaN(d.getTime()) ? null : d;
+      };
+
+      // ── Parse Wealth Log to get the most recent snapshot ───────────────────
+      // totalWealth = last WL Grand Total, with live Sharesies substituted in
+      const parseAmt = v => { if (!v && v !== 0) return null; const n = parseFloat(String(v).replace(/[$,\s]/g, '')); return isNaN(n) ? null : n; };
+      const WL_COLS = [
+        { key: 'Milford KiwiSaver Active Growth',       short: 'KiwiSaver (Milford)' },
+        { key: 'Pie Australasian Dividend Growth Fund', short: 'Pie Australasian'    },
+        { key: 'Salt Long Short Fund',                  short: 'Salt Long Short'     },
+        { key: 'Sharesies',                             short: 'Sharesies'           },
+        { key: 'Sharesies Cash',                        short: 'Sharesies Cash'      },
+        { key: 'InvestNow Cash',                        short: 'InvestNow Cash'      },
+        { key: 'Revolut',                               short: 'Revolut'             },
+        { key: 'ANZ account',                           short: 'ANZ'                 },
+        { key: 'Other investments',                     short: 'Other'               },
+      ];
+      const wlRowTotal = r => {
+        const gt = parseAmt(r['Grand Total']);
+        if (gt) return gt;
+        const sum = WL_COLS.reduce((s, c) => s + (parseAmt(r[c.key]) || 0), 0);
+        return sum > 0 ? sum : null;
+      };
+      const wlAllRows = (wealthLogData || [])
+        .map(r => ({ date: parseWLDate(r['Date']), total: wlRowTotal(r), raw: r }))
+        .filter(p => p.date && p.total)
+        .sort((a, b) => a.date - b.date);
+
+      // Latest WL entry — use its Grand Total, swap in live Sharesies value
+      const latestWL = wlAllRows[wlAllRows.length - 1];
+      const latestWLTotal     = latestWL ? latestWL.total : 0;
+      const latestWLSharesies = latestWL ? (parseAmt(latestWL.raw['Sharesies']) || 0) : 0;
+      // totalWealth = everything from last snapshot, but Sharesies is live today
+      const totalWealth = latestWLTotal > 0
+        ? latestWLTotal - latestWLSharesies + totalValue
+        : totalValue;
+
+      // ── Parse managed funds data (for pillar cards only) ────────────────────
       const mfAll = managedFundsData || [];
       const kiwiRows  = mfAll.filter(r => (r['Type'] || '').toLowerCase().includes('kiwi'));
       const cashRows  = mfAll.filter(r => (r['Type'] || '').toLowerCase().includes('cash'));
@@ -781,34 +863,24 @@
         const t = (r['Type'] || '').toLowerCase();
         return !t.includes('kiwi') && !t.includes('cash');
       });
+      const isMilford = r => (r['Provider'] || r['Fund Name'] || '').toLowerCase().includes('milford');
+      const milfordRows   = fundRows.filter(isMilford);
+      const investNowRows = fundRows.filter(r => !isMilford(r));
 
-      // Split funds by provider so Milford and InvestNow are tracked separately
-      const isMilford    = r => (r['Provider'] || r['Fund Name'] || '').toLowerCase().includes('milford');
-      const isInvestNow  = r => (r['Provider'] || r['Fund Name'] || '').toLowerCase().includes('investnow');
-      const milfordRows  = fundRows.filter(isMilford);
-      const investNowRows = fundRows.filter(r => !isMilford(r)); // everything non-Milford goes to InvestNow bucket
-
-      const parseNZD = v => { const n = parseFloat(String(v || '').replace(/[$,\s]/g, '')); return isNaN(n) ? 0 : n; };
-      const parseGainPct = v => { const n = parseFloat(String(v || '').replace(/[%\s]/g, '')); return isNaN(n) ? null : n; };
       const sumVal  = rows => rows.reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
       const sumCost = rows => rows.reduce((s, r) => s + parseNZD(r['Total Cost (NZD)']), 0);
       const sumGain = rows => { const g = rows.reduce((s, r) => s + parseNZD(r['Gain/Loss $']), 0); return g || (sumVal(rows) - sumCost(rows)); };
 
-      const kiwiValue = sumVal(kiwiRows);
-      const kiwiCost  = sumCost(kiwiRows);
-      const kiwiGain  = kiwiValue - kiwiCost;
-
-      const milfordValue = sumVal(milfordRows);
-      const milfordCost  = sumCost(milfordRows);
-      const milfordGain  = sumGain(milfordRows);
-
+      const kiwiValue      = sumVal(kiwiRows);
+      const kiwiCost       = sumCost(kiwiRows);
+      const kiwiGain       = kiwiValue - kiwiCost;
+      const milfordValue   = sumVal(milfordRows);
+      const milfordCost    = sumCost(milfordRows);
+      const milfordGain    = sumGain(milfordRows);
       const investNowValue = sumVal(investNowRows);
       const investNowCost  = sumCost(investNowRows);
       const investNowGain  = sumGain(investNowRows);
-
-      const cashValue = sumVal(cashRows);
-
-      const totalWealth = totalValue + investNowValue + milfordValue + kiwiValue + cashValue;
+      const cashValue      = sumVal(cashRows);
       const GOAL = 1000000;
       const goalPct = Math.min((totalWealth / GOAL) * 100, 100);
       const goalBarColor = goalPct >= 75 ? '#16a34a' : goalPct >= 40 ? '#2563eb' : '#7c3aed';
@@ -1128,92 +1200,28 @@
       document.getElementById('content').innerHTML = html;
 
       // ── Draw wealth journey chart after DOM is ready ──────────────────────
-      // History = Wealth Log rows before current month; today = live computed values
+      // History = ALL Wealth Log rows; today = last WL total with live Sharesies swapped in
       {
-        // Column definitions — must match Wealth Log sheet headers exactly
-        // short = tooltip label, liveKey = property set on todayPoint
-        const WL_COLS = [
-          { key: 'Milford KiwiSaver Active Growth',       short: 'KiwiSaver (Milford)' },
-          { key: 'Pie Australasian Dividend Growth Fund', short: 'Pie Australasian'    },
-          { key: 'Salt Long Short Fund',                  short: 'Salt Long Short'     },
-          { key: 'Sharesies',                             short: 'Sharesies'           },
-          { key: 'Sharesies Cash',                        short: 'Sharesies Cash'      },
-          { key: 'InvestNow Cash',                        short: 'InvestNow Cash'      },
-          { key: 'Revolut',                               short: 'Revolut'             },
-          { key: 'ANZ account',                           short: 'ANZ'                 },
-          { key: 'Other investments',                     short: 'Other'               },
-        ];
-
-        const parseWLDate = s => {
-          if (!s) return null;
-          const clean = String(s).trim();
-          const parts = clean.split(/[\/\-]/);
-          if (parts.length === 3) {
-            const a = parseInt(parts[0]), b = parseInt(parts[1]), c = parseInt(parts[2]);
-            if (c > 1000) return new Date(c, b - 1, a);   // dd/mm/yyyy
-            if (a > 1000) return new Date(a, b - 1, c);   // yyyy-mm-dd
-          }
-          const d = new Date(clean);
-          return isNaN(d.getTime()) ? null : d;
-        };
-        const parseAmt = v => { if (!v && v !== 0) return null; const n = parseFloat(String(v).replace(/[$,\s]/g, '')); return isNaN(n) ? null : n; };
-
-        // Grand Total = explicit Grand Total column OR sum of all WL_COLS components
-        const wlRowTotal = r => {
-          const gt = parseAmt(r['Grand Total']);
-          if (gt) return gt;
-          const sum = WL_COLS.reduce((s, c) => s + (parseAmt(r[c.key]) || 0), 0);
-          return sum > 0 ? sum : null;
-        };
-
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        // Historical points — only rows BEFORE current calendar month
-        const histPoints = (wealthLogData || [])
+        // Historical points — all WL rows before the current calendar month
+        // (uses shared WL_COLS, parseWLDate, parseAmt, wlRowTotal defined above)
+        const histPoints = wlAllRows
+          .filter(p => p.date < startOfMonth)
           .map(r => {
-            const obj = { date: parseWLDate(r['Date']), total: wlRowTotal(r) };
-            WL_COLS.forEach(c => { obj[c.key] = parseAmt(r[c.key]); });
+            const obj = { date: r.date, total: r.total };
+            WL_COLS.forEach(c => { obj[c.key] = parseAmt(r.raw[c.key]); });
             return obj;
-          })
-          .filter(p => p.date && p.total && p.date < startOfMonth)
-          .sort((a, b) => a.date - b.date);
+          });
 
-        // ── Live "today" point ── map each WL column to a live data source
-        const mfSumBy = namePart => (managedFundsData || []).filter(r =>
-          (r['Fund Name'] || '').toLowerCase().includes(namePart.toLowerCase())
-        ).reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
-
+        // Today's point: last WL total with live Sharesies swapped in
         const todayMap = {};
-        todayMap['Milford KiwiSaver Active Growth']       = kiwiValue;
-        todayMap['Pie Australasian Dividend Growth Fund'] = mfSumBy('pie');
-        todayMap['Salt Long Short Fund']                  = mfSumBy('salt');
-        todayMap['Sharesies']                             = totalValue;  // LIVE — updates daily
-        todayMap['Sharesies Cash']                        = (managedFundsData || []).filter(r =>
-          (r['Fund Name'] || '').toLowerCase().includes('sharesies') &&
-          (r['Type'] || '').toLowerCase().includes('cash')
-        ).reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
-        todayMap['InvestNow Cash']                        = (managedFundsData || []).filter(r =>
-          (r['Fund Name'] || '').toLowerCase().includes('investnow') &&
-          (r['Type'] || '').toLowerCase().includes('cash')
-        ).reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
-        todayMap['Revolut']                               = mfSumBy('revolut');
-        todayMap['ANZ account']                           = (managedFundsData || []).filter(r =>
-          ((r['Fund Name'] || '').toLowerCase().includes('anz') ||
-           (r['Provider']  || '').toLowerCase().includes('anz')) &&
-          !(r['Type'] || '').toLowerCase().includes('kiwi')
-        ).reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
-        todayMap['Other investments']                     = (managedFundsData || []).filter(r => {
-          const fn = (r['Fund Name'] || '').toLowerCase();
-          const pv = (r['Provider']  || '').toLowerCase();
-          const ty = (r['Type']      || '').toLowerCase();
-          return !fn.includes('pie') && !fn.includes('salt') && !fn.includes('revolut') &&
-                 !fn.includes('anz') && !pv.includes('anz') &&
-                 !fn.includes('sharesies') && !fn.includes('investnow') &&
-                 !fn.includes('milford') && !ty.includes('kiwi') && !ty.includes('cash');
-        }).reduce((s, r) => s + parseNZD(r['Current Value (NZD)']), 0);
-
-        const todayTotal = WL_COLS.reduce((s, c) => s + (todayMap[c.key] || 0), 0);
+        if (latestWL) {
+          WL_COLS.forEach(c => { todayMap[c.key] = parseAmt(latestWL.raw[c.key]) || 0; });
+        }
+        todayMap['Sharesies'] = totalValue; // always use live price
+        const todayTotal = totalWealth;     // already computed above with same logic
         const todayPoint = { date: now, total: todayTotal, isToday: true, ...todayMap };
 
         const allPoints = [...histPoints, todayPoint];
