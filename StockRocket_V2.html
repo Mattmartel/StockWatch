@@ -913,25 +913,32 @@
       const g6m  = growthVs(p6m);
       const g12m = growthVs(p12m);
 
-      // $1M projection — use best available window: 6m → 3m → oldest point
+      // $1M projection — pick the reference point that gives the best (highest positive) monthly rate
+      // Prefer oldest point for longest-window average; also evaluate 6m and 3m windows
       let monthlyGrowthRate = 0, projectionDate = null, monthsToGoal = null, projectionWindow = '';
       const oldest = wlAllRows.length > 0 ? wlAllRows[0] : null;
-      const referencePoint = (p6m && p6m !== (wlAllRows[wlAllRows.length-1]) ? p6m : null)
-                          || (p3m && p3m !== (wlAllRows[wlAllRows.length-1]) ? p3m : null)
-                          || (oldest && oldest !== (wlAllRows[wlAllRows.length-1]) ? oldest : null);
-      if (referencePoint && referencePoint.total > 0) {
+      const last = wlAllRows[wlAllRows.length - 1];
+      const candidateRefs = [oldest, p6m, p3m].filter(p => p && p !== last);
+      let referencePoint = null;
+      for (const candidate of candidateRefs) {
+        if (!candidate || candidate.total <= 0) continue;
+        const me = (wlNow - candidate.date) / (1000 * 60 * 60 * 24 * 30.4375);
+        if (me < 0.5) continue;
+        const rate = (totalWealth - candidate.total) / me;
+        if (rate > monthlyGrowthRate) {
+          monthlyGrowthRate = rate;
+          referencePoint = candidate;
+        }
+      }
+      if (referencePoint && monthlyGrowthRate > 0) {
         const monthsElapsed = (wlNow - referencePoint.date) / (1000 * 60 * 60 * 24 * 30.4375);
-        if (monthsElapsed > 0.5) {
-          monthlyGrowthRate = (totalWealth - referencePoint.total) / monthsElapsed;
-          // Window label for transparency
-          const mElapsed = Math.round(monthsElapsed);
-          projectionWindow = mElapsed + '-month avg ($' + Math.round(monthlyGrowthRate).toLocaleString('en-NZ') + '/mo)';
-          if (monthlyGrowthRate > 0 && totalWealth < GOAL) {
-            monthsToGoal = Math.ceil((GOAL - totalWealth) / monthlyGrowthRate);
-            if (monthsToGoal > 0 && monthsToGoal < 360) {
-              projectionDate = new Date(wlNow);
-              projectionDate.setMonth(projectionDate.getMonth() + monthsToGoal);
-            }
+        const mElapsed = Math.round(monthsElapsed);
+        projectionWindow = mElapsed + '-month avg ($' + Math.round(monthlyGrowthRate).toLocaleString('en-NZ') + '/mo)';
+        if (totalWealth < GOAL) {
+          monthsToGoal = Math.ceil((GOAL - totalWealth) / monthlyGrowthRate);
+          if (monthsToGoal > 0 && monthsToGoal < 600) {
+            projectionDate = new Date(wlNow);
+            projectionDate.setMonth(projectionDate.getMonth() + monthsToGoal);
           }
         }
       }
