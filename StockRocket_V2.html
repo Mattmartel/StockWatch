@@ -913,12 +913,19 @@
       const g6m  = growthVs(p6m);
       const g12m = growthVs(p12m);
 
-      // $1M projection — uses 6-month average monthly growth
-      let monthlyGrowthRate = 0, projectionDate = null, monthsToGoal = null;
-      if (p6m && p6m.total > 0) {
-        const monthsElapsed = (wlNow - p6m.date) / (1000 * 60 * 60 * 24 * 30.4375);
-        if (monthsElapsed > 0) {
-          monthlyGrowthRate = (totalWealth - p6m.total) / monthsElapsed;
+      // $1M projection — use best available window: 6m → 3m → oldest point
+      let monthlyGrowthRate = 0, projectionDate = null, monthsToGoal = null, projectionWindow = '';
+      const oldest = wlAllRows.length > 0 ? wlAllRows[0] : null;
+      const referencePoint = (p6m && p6m !== (wlAllRows[wlAllRows.length-1]) ? p6m : null)
+                          || (p3m && p3m !== (wlAllRows[wlAllRows.length-1]) ? p3m : null)
+                          || (oldest && oldest !== (wlAllRows[wlAllRows.length-1]) ? oldest : null);
+      if (referencePoint && referencePoint.total > 0) {
+        const monthsElapsed = (wlNow - referencePoint.date) / (1000 * 60 * 60 * 24 * 30.4375);
+        if (monthsElapsed > 0.5) {
+          monthlyGrowthRate = (totalWealth - referencePoint.total) / monthsElapsed;
+          // Window label for transparency
+          const mElapsed = Math.round(monthsElapsed);
+          projectionWindow = mElapsed + '-month avg ($' + Math.round(monthlyGrowthRate).toLocaleString('en-NZ') + '/mo)';
           if (monthlyGrowthRate > 0 && totalWealth < GOAL) {
             monthsToGoal = Math.ceil((GOAL - totalWealth) / monthlyGrowthRate);
             if (monthsToGoal > 0 && monthsToGoal < 360) {
@@ -987,11 +994,13 @@
           html += '<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:10px;padding:0.9rem 1rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">';
           html += '<div><span style="font-size:0.75rem;color:#15803d;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">$1M Projection</span>';
           html += '<div style="font-size:1.1rem;font-weight:800;color:#14532d;margin-top:0.2rem;">' + projStr + ' <span style="font-size:0.85rem;font-weight:500;color:#16a34a;">(' + timeStr + ' away)</span></div>';
-          html += '<div style="font-size:0.75rem;color:#16a34a;margin-top:0.1rem;">Based on +$' + perMo + '/month avg over last 6 months</div></div>';
+          html += '<div style="font-size:0.75rem;color:#16a34a;margin-top:0.1rem;">Based on ' + projectionWindow + '</div></div>';
           html += '<div style="font-size:2rem;">🎯</div>';
           html += '</div>';
         } else if (wlAllRows.length > 0 && monthlyGrowthRate <= 0) {
-          html += '<div style="background:#fef9c3;border:1px solid #fde047;border-radius:10px;padding:0.8rem 1rem;margin-bottom:1.5rem;font-size:0.85rem;color:#854d0e;">Growth trend is flat or negative over the last 6 months — projection unavailable.</div>';
+          html += '<div style="background:#fef9c3;border:1px solid #fde047;border-radius:10px;padding:0.8rem 1rem;margin-bottom:1.5rem;font-size:0.85rem;color:#854d0e;">Growth trend is flat or negative — projection unavailable.</div>';
+        } else if (wlAllRows.length < 2) {
+          html += '<div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:10px;padding:0.8rem 1rem;margin-bottom:1.5rem;font-size:0.85rem;color:#475569;">Add at least 2 months of data to the Wealth Log sheet to see a $1M projection.</div>';
         }
       }
 
@@ -1315,7 +1324,7 @@
           const allVals   = totals.filter(Boolean);
           if (allVals.length === 0) return;
 
-          const yMin = 0;
+          const yMin = 750000;
           const yMax = Math.max(Math.max(...allVals) * 1.05, GOAL * 1.05);
 
           const pointRadii  = allPoints.map(p => p.isToday ? 7 : 4);
