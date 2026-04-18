@@ -985,6 +985,23 @@
         html += gCard('12 months', g12m);
         html += '</div>';
 
+        // DEBUG — remove once banner works
+        html += '<details style="margin-bottom:1rem;font-size:0.75rem;color:#555;background:#f8f8f8;border:1px solid #ddd;border-radius:8px;padding:0.5rem 0.75rem;">'
+          + '<summary style="cursor:pointer;font-weight:700;">🔍 Projection debug</summary>'
+          + '<pre style="margin:0.5rem 0 0;white-space:pre-wrap;">'
+          + 'wlAllRows: ' + wlAllRows.length + '\n'
+          + 'totalWealth: ' + totalWealth + '\n'
+          + 'latestWL total: ' + (latestWL ? latestWL.total : 'null') + '\n'
+          + 'latestWL date: ' + (latestWL ? latestWL.date : 'null') + '\n'
+          + 'referencePoint date: ' + (referencePoint ? referencePoint.date : 'null') + '\n'
+          + 'referencePoint total: ' + (referencePoint ? referencePoint.total : 'null') + '\n'
+          + 'monthlyGrowthRate: ' + monthlyGrowthRate.toFixed(2) + '\n'
+          + 'monthsToGoal: ' + monthsToGoal + '\n'
+          + 'projectionDate: ' + projectionDate + '\n'
+          + 'p6m date: ' + (p6m ? p6m.date : 'null') + '\n'
+          + 'p3m date: ' + (p3m ? p3m.date : 'null') + '\n'
+          + '</pre></details>';
+
         if (projectionDate) {
           const yrs = Math.floor(monthsToGoal / 12);
           const mos = monthsToGoal % 12;
