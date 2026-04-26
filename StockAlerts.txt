@@ -1,0 +1,305 @@
+// ============================================================
+// StockWatch Price Alerts — Google Apps Script
+// ============================================================
+// SETUP (one-time):
+//   1. In your Google Sheet → Extensions → Apps Script
+//   2. Paste this entire file, save it
+//   3. Run setupTrigger() once (click ▶ with that function selected)
+//   4. Authorise when prompted
+//
+// The script then runs every 30 minutes and emails you when:
+//   • A stock drops ≥5% intraday (vs previous close)
+//   • A stock enters the "drop zone" (≥20% below recent high)
+//   • A stock recovers OUT of the drop zone
+// ============================================================
+
+// ── Config ────────────────────────────────────────────────────
+const ALERT_EMAILS          = ['mattmartel@gmail.com', 'matt.martel@nzme.co.nz'];
+const CLICKSEND_USERNAME    = 'mattmartel@gmail.com';   // e.g. 'matt@example.com'
+const CLICKSEND_API_KEY     = '834B79DE-FE8F-E869-88A7-4FA1D69403AE'; // ClickSend dashboard → API Credentials
+const ALERT_PHONE           = '+64277744483';
+const STOCKS_SHEET_NAME     = 'StockWatchtower';     // change if your sheet tab has a different name
+const INTRADAY_THRESHOLD    = -5;           // % intraday drop that triggers an alert (e.g. -5 = down 5%)
+const DROPZONE_THRESHOLD    = -20;          // % below recent high = "drop zone"
+const HISTORY_RANGE         = '3mo';        // Yahoo history window for calculating recent high
+// ─────────────────────────────────────────────────────────────
+
+function setupTrigger() {
+  // Remove any existing triggers for this script, then create a fresh 30-min one
+  ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('checkPriceAlerts')
+    .timeBased()
+    .everyMinutes(30)
+    .create();
+  Logger.log('✅ Trigger created. checkPriceAlerts() will run every 30 minutes.');
+}
+
+function checkPriceAlerts() {
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(STOCKS_SHEET_NAME);
+  if (!sheet) { Logger.log('Sheet not found: ' + STOCKS_SHEET_NAME); return; }
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) { Logger.log('No data rows found.'); return; }
+
+  const headers = data[0].map(h => String(h).trim());
+  const col     = name => headers.indexOf(name);
+
+  const iName     = col('Firm name');
+  const iTicker   = col('Ticker/Symbol');
+  const iQty      = col('Quantity');
+  const iPurchase = col('Purchase Price');
+
+  if (iTicker === -1) { Logger.log('Column "Ticker/Symbol" not found'); return; }
+
+  // Load previous state (which stocks were in drop zone last run)
+  const props    = PropertiesService.getScriptProperties();
+  const prevState = JSON.parse(props.getProperty('alertState') || '{}');
+  const newState  = {};
+  const alerts    = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row    = data[i];
+    const name   = iName   >= 0 ? String(row[iName]   || '').trim() : '';
+    const ticker = iTicker >= 0 ? String(row[iTicker] || '').trim() : '';
+    const qty    = iQty    >= 0 ? parseFloat(String(row[iQty]      || '0').replace(/,/g, '')) || 0 : 0;
+    const costPx = iPurchase >= 0 ? parseFloat(String(row[iPurchase] || '0').replace(/[$,]/g, '')) || 0 : 0;
+
+    if (!ticker || !name) continue;
+
+    const yahooTicker = normalizeForYahoo(ticker);
+    const price = fetchYahooPrice(yahooTicker);
+    if (!price) {
+      Logger.log('No price data for ' + ticker);
+      Utilities.sleep(500);
+      continue;
+    }
+
+    const { current, prevClose, recentHigh } = price;
+
+    // Intraday % change vs previous close
+    const intradayPct = prevClose > 0 ? ((current - prevClose) / prevClose) * 100 : null;
+
+    // Drop zone: how far below the recent high (last 3 months)
+    // Falls back to purchase price if no history available
+    const refHigh = recentHigh > 0 ? recentHigh : costPx;
+    const drawdownPct = refHigh > 0 ? ((current - refHigh) / refHigh) * 100 : null;
+    const inDropZone  = drawdownPct !== null && drawdownPct <= DROPZONE_THRESHOLD;
+
+    const prev         = prevState[ticker] || {};
+    const wasInDropZone = prev.inDropZone || false;
+
+    // Persist new state
+    newState[ticker] = {
+      inDropZone  : inDropZone,
+      lastPrice   : current,
+      lastChecked : new Date().toISOString()
+    };
+
+    const label    = name + ' (' + ticker + ')';
+    const fmtPct   = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+    const fmtPrice = n => '$' + n.toFixed(3);
+
+    // ── Alert: big intraday drop ────────────────────────────
+    if (intradayPct !== null && intradayPct <= INTRADAY_THRESHOLD) {
+      const holdValue = qty * current;
+      const dayChange = qty > 0 ? qty * (current - prevClose) : null;
+      let detail = 'Down ' + fmtPct(intradayPct) + ' today';
+      detail += '  |  ' + fmtPrice(current) + ' (was ' + fmtPrice(prevClose) + ')';
+      if (dayChange !== null) detail += '  |  Portfolio impact: $' + dayChange.toFixed(0);
+      alerts.push({ type: '📉 Intraday Drop', stock: label, detail });
+    }
+
+    // ── Alert: entered drop zone ────────────────────────────
+    if (inDropZone && !wasInDropZone) {
+      let detail = 'Now ' + fmtPct(drawdownPct) + ' below recent high (' + fmtPrice(recentHigh) + ')';
+      detail += '  |  Current: ' + fmtPrice(current);
+      alerts.push({ type: '⚠️ Entered Drop Zone (>20% below high)', stock: label, detail });
+    }
+
+    // ── Alert: recovered from drop zone ─────────────────────
+    if (!inDropZone && wasInDropZone) {
+      let detail = drawdownPct !== null
+        ? 'Now only ' + fmtPct(drawdownPct) + ' below recent high  |  Current: ' + fmtPrice(current)
+        : 'Current: ' + fmtPrice(current);
+      alerts.push({ type: '✅ Recovered from Drop Zone', stock: label, detail });
+    }
+
+    Utilities.sleep(400); // gentle rate limit between Yahoo calls
+  }
+
+  // Save new state
+  props.setProperty('alertState', JSON.stringify(newState));
+
+  if (alerts.length > 0) {
+    sendAlertEmail(alerts);
+    Logger.log('Sent ' + alerts.length + ' alert(s).');
+  } else {
+    Logger.log('No alerts at ' + new Date().toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' }));
+  }
+}
+
+// ── Email ─────────────────────────────────────────────────────
+
+function sendAlertEmail(alerts) {
+  const now     = new Date();
+  const timeStr = now.toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' });
+  const subject = '🚨 StockWatch: ' + alerts.length + ' alert' + (alerts.length > 1 ? 's' : '') + ' — ' + timeStr;
+
+  // Plain text fallback
+  let text = 'StockWatch Alerts — ' + timeStr + '\n\n';
+  alerts.forEach(a => {
+    text += a.type + '\n' + a.stock + '\n' + a.detail + '\n\n';
+  });
+  text += 'To stop alerts: Extensions → Apps Script → delete the trigger.';
+
+  // HTML email
+  let html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;">
+      <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:white;padding:16px 20px;border-radius:10px 10px 0 0;">
+        <div style="font-size:1.2rem;font-weight:800;">🚨 StockWatch Alerts</div>
+        <div style="font-size:0.85rem;opacity:0.8;margin-top:2px;">${timeStr}</div>
+      </div>
+      <div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px;padding:12px;">
+  `;
+
+  alerts.forEach(a => {
+    const bg = a.type.includes('Recovered')    ? '#f0fdf4'
+             : a.type.includes('Drop Zone')    ? '#fef2f2'
+             : '#fff7ed';
+    const border = a.type.includes('Recovered') ? '#bbf7d0'
+                 : a.type.includes('Drop Zone') ? '#fecaca'
+                 : '#fed7aa';
+    html += `
+      <div style="background:${bg};border:1px solid ${border};border-radius:8px;padding:12px 14px;margin:8px 0;">
+        <div style="font-weight:700;font-size:0.95rem;">${a.type}</div>
+        <div style="font-size:1rem;font-weight:600;margin:3px 0;">${a.stock}</div>
+        <div style="color:#555;font-size:0.85rem;">${a.detail}</div>
+      </div>
+    `;
+  });
+
+  html += `
+        <div style="margin-top:12px;font-size:0.75rem;color:#94a3b8;text-align:center;">
+          Sent by StockWatch · <a href="https://script.google.com" style="color:#94a3b8;">manage alerts</a>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Email — send to all addresses
+  MailApp.sendEmail({ to: ALERT_EMAILS.join(','), subject, body: text, htmlBody: html });
+
+  // SMS via ClickSend API
+  sendSms(alerts);
+}
+
+// ── SMS (ClickSend) ───────────────────────────────────────────
+
+function sendSms(alerts) {
+  if (!CLICKSEND_USERNAME || CLICKSEND_USERNAME === 'YOUR_CLICKSEND_EMAIL') {
+    Logger.log('ClickSend not configured — skipping SMS.');
+    return;
+  }
+
+  const smsLines = alerts.map(a => a.type + ': ' + a.stock);
+  const body     = 'StockWatch alert:\n' + smsLines.join('\n');
+
+  const payload = JSON.stringify({
+    messages: [{
+      source : 'stockwatch',
+      body   : body,
+      to     : ALERT_PHONE
+    }]
+  });
+
+  const options = {
+    method      : 'post',
+    contentType : 'application/json',
+    headers     : {
+      Authorization: 'Basic ' + Utilities.base64Encode(CLICKSEND_USERNAME + ':' + CLICKSEND_API_KEY)
+    },
+    payload          : payload,
+    muteHttpExceptions: true
+  };
+
+  try {
+    const resp   = UrlFetchApp.fetch('https://rest.clicksend.com/v3/sms/send', options);
+    const raw    = resp.getContentText();
+    const result = JSON.parse(raw);
+    if (result.response_code === 'SUCCESS') {
+      Logger.log('✅ SMS sent to ' + ALERT_PHONE);
+    } else {
+      Logger.log('❌ ClickSend rejected: ' + raw);
+    }
+  } catch (e) {
+    Logger.log('❌ SMS exception: ' + e.message);
+  }
+}
+
+// Run to check how many triggers are active (should be exactly 1)
+function listTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  Logger.log(triggers.length + ' trigger(s) registered:');
+  triggers.forEach((t, i) => Logger.log(i + ': ' + t.getHandlerFunction() + ' — ' + t.getEventType()));
+}
+
+// ── Yahoo Finance ─────────────────────────────────────────────
+
+function fetchYahooPrice(ticker) {
+  const urls = [
+    'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ticker) + '?interval=1d&range=' + HISTORY_RANGE,
+    'https://query2.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ticker) + '?interval=1d&range=' + HISTORY_RANGE
+  ];
+
+  for (const url of urls) {
+    try {
+      const resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+      if (resp.getResponseCode() !== 200) continue;
+
+      const json   = JSON.parse(resp.getContentText());
+      const result = json?.chart?.result?.[0];
+      if (!result) continue;
+
+      const meta      = result.meta || {};
+      const current   = meta.regularMarketPrice || 0;
+      const prevClose = meta.chartPreviousClose || meta.previousClose || 0;
+
+      // Max closing price over the history window = "recent high"
+      const closes     = (result.indicators?.quote?.[0]?.close || []).filter(p => p != null);
+      const recentHigh = closes.length > 0 ? Math.max(...closes) : 0;
+
+      if (current > 0) return { current, prevClose, recentHigh };
+    } catch (e) {
+      Logger.log('Yahoo error [' + ticker + ']: ' + e.message);
+    }
+  }
+  return null;
+}
+
+function normalizeForYahoo(ticker) {
+  ticker = ticker.trim().toUpperCase();
+  if (ticker.startsWith('NZE:')) return ticker.replace('NZE:', '') + '.NZ';
+  if (ticker.startsWith('ASX:')) return ticker.replace('ASX:', '') + '.AX';
+  return ticker;
+}
+
+// ── Utilities ─────────────────────────────────────────────────
+
+// Run this manually to test the script without waiting for the trigger
+function testAlerts() {
+  Logger.log('Running test check...');
+  checkPriceAlerts();
+}
+
+// Run this to see what's currently saved as alert state
+function showState() {
+  const state = PropertiesService.getScriptProperties().getProperty('alertState');
+  Logger.log(state ? JSON.parse(state) : 'No state saved yet.');
+}
+
+// Run this to reset the drop zone memory (useful if you want re-alerts on existing positions)
+function resetState() {
+  PropertiesService.getScriptProperties().deleteProperty('alertState');
+  Logger.log('Alert state cleared.');
+}

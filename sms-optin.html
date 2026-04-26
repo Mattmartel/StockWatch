@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockWatch — SMS Alert Opt-In</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f1f5f9;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      max-width: 460px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    .header {
+      background: linear-gradient(135deg, #1e3a5f, #2563eb);
+      color: white;
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .header-icon { font-size: 1.75rem; }
+    .header-title { font-size: 1.2rem; font-weight: 800; }
+    .header-sub { font-size: 0.8rem; opacity: 0.8; margin-top: 2px; }
+    h2 { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-bottom: 0.4rem; }
+    .description {
+      font-size: 0.875rem;
+      color: #475569;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+    .what-to-expect {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .what-to-expect p {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.6rem;
+    }
+    .what-to-expect ul {
+      list-style: none;
+      font-size: 0.875rem;
+      color: #334155;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .what-to-expect li::before { content: '• '; color: #2563eb; font-weight: 700; }
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 0.4rem;
+    }
+    input[type="text"], input[type="tel"] {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 0.65rem 0.9rem;
+      font-size: 0.95rem;
+      color: #1e293b;
+      margin-bottom: 1.25rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: #2563eb; }
+    .consent-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    input[type="checkbox"] {
+      margin-top: 2px;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      accent-color: #2563eb;
+    }
+    .consent-text {
+      font-size: 0.825rem;
+      color: #475569;
+      line-height: 1.5;
+    }
+    button {
+      width: 100%;
+      background: linear-gradient(135deg, #1e3a5f, #2563eb);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.85rem;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 1.25rem;
+    }
+    .fine-print {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      text-align: center;
+      line-height: 1.6;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 1rem;
+    }
+    .fine-print a { color: #2563eb; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="header-icon">📈</div>
+      <div>
+        <div class="header-title">StockWatch Alerts</div>
+        <div class="header-sub">Personal portfolio monitoring</div>
+      </div>
+    </div>
+
+    <h2>Subscribe to SMS Alerts</h2>
+    <p class="description">
+      Receive real-time SMS notifications when your portfolio holdings trigger key price events — big intraday moves, drop zone entries, and recoveries.
+    </p>
+
+    <div class="what-to-expect">
+      <p>You will receive alerts for:</p>
+      <ul>
+        <li>Intraday price drops of 5% or more</li>
+        <li>Holdings entering the &gt;20% drawdown zone</li>
+        <li>Holdings recovering from the drop zone</li>
+      </ul>
+    </div>
+
+    <label for="name">Full name</label>
+    <input type="text" id="name" placeholder="Matt Martel">
+
+    <label for="phone">Mobile number</label>
+    <input type="tel" id="phone" placeholder="+64 27 774 4483">
+
+    <div class="consent-row">
+      <input type="checkbox" id="consent" checked>
+      <label for="consent" class="consent-text">
+        I agree to receive automated SMS price alerts from StockWatch. Message frequency varies based on market activity. Standard message and data rates may apply. Reply <strong>STOP</strong> at any time to unsubscribe.
+      </label>
+    </div>
+
+    <button type="button">Subscribe to Alerts</button>
+
+    <p class="fine-print">
+      Messages sent by StockWatch, a personal portfolio monitoring tool.<br>
+      To opt out, reply <strong>STOP</strong> to any message.<br>
+      For help, reply <strong>HELP</strong> or contact <a href="mailto:mattmartel@gmail.com">mattmartel@gmail.com</a>
+    </p>
+  </div>
+</body>
+</html>
